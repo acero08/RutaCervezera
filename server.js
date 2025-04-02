@@ -2,15 +2,22 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const fs = require("fs");
+const swaggerUi = require("swagger-ui-express");
+const YAML = require("yamljs");
 
-const Review = require('./models/review.models.js');
-const Upvote = require('./models/upvote.models.js');
+const Review = require("./models/review.models.js");
+const Upvote = require("./models/upvote.models.js");
 
 const app = express();
 const port = 3000;
 
 app.use(cors());
 app.use(express.json());
+
+// Hace load al Swagger YAML file
+const swaggerDocument = YAML.load("./swagger.yaml");
+// Hace el setup del Swagger UI
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 mongoose.connect("mongodb+srv://andreacero:A.acero2020@backenddb.0peewj7.mongodb.net/FoodReviewAPI?retryWrites=true&w=majority&appName=BackendDB")
     .then(() => console.log("Connected to MongoDB"))

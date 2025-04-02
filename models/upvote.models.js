@@ -19,3 +19,7 @@ const UpvoteSchema = mongoose.Schema({
 
 const Upvote = mongoose.model('Upvote', UpvoteSchema);
 module.exports = Upvote;
+
+//npm init -y 
+//npm i dotenv
+//npm i axios

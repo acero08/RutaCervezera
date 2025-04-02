@@ -1,0 +1,109 @@
+openapi: 3.0.0
+info:
+  title: Food Review API
+  description: API for managing reviews and upvotes for food places.
+  version: 1.0.0
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+paths:
+  /:
+    get:
+      summary: Welcome message
+      responses:
+        "200":
+          description: API welcome message
+  /api/reviews:
+    post:
+      summary: Create a new review
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                place_id:
+                  type: string
+                user:
+                  type: string
+                rating:
+                  type: integer
+                comment:
+                  type: string
+      responses:
+        "201":
+          description: Review created
+        "500":
+          description: Server error
+  /api/reviews/load:
+    post:
+      summary: Load reviews from a JSON file
+      responses:
+        "200":
+          description: Reviews loaded successfully
+        "500":
+          description: Error loading reviews
+  /api/reviews/{place_id}:
+    get:
+      summary: Get reviews for a specific place
+      parameters:
+        - name: place_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of reviews
+        "500":
+          description: Server error
+  /api/reviews/{id}:
+    delete:
+      summary: Delete a review by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Review deleted successfully
+        "404":
+          description: Review not found
+        "500":
+          description: Server error
+  /api/upvotes:
+    post:
+      summary: Create an upvote for a place
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                place_id:
+                  type: string
+                user:
+                  type: string
+      responses:
+        "201":
+          description: Upvote created
+        "500":
+          description: Server error
+  /api/upvotes/{place_id}/count:
+    get:
+      summary: Get upvote count for a place
+      parameters:
+        - name: place_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Upvote count
+        "500":
+          description: Server error
