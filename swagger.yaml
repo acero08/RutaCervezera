@@ -1,51 +1,278 @@
 openapi: 3.0.0
 info:
-  title: Food Review API
-  description: API for managing reviews and upvotes for food places.
+  title: Bar Review API
+  description: API for finding bars, managing reviews, and user interactions
   version: 1.0.0
 servers:
   - url: http://localhost:3000
     description: Local development server
+
+tags:
+  - name: Yelp Integration
+    description: Endpoints that interact with Yelp's API
+  - name: Reviews
+    description: Manage bar reviews
+  - name: Upvotes
+    description: Handle upvotes for bars
+  - name: Utility
+    description: Utility endpoints
+
 paths:
   /:
     get:
-      summary: Welcome message
+      summary: API status check
       responses:
         "200":
-          description: API welcome message
+          description: API is running
+          content:
+            text/plain:
+              example: "API de Reviews y Upvotes"
+
+  /api/categories:
+    get:
+      tags: [Yelp Integration]
+      summary: Get all Yelp business categories
+      responses:
+        "200":
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/YelpCategory"
+        "500":
+          description: Error fetching categories
+          content:
+            application/json:
+              example:
+                error: "Failed to get categories"
+                details: "Error details"
+
+  /api/bar/search:
+    get:
+      tags: [Yelp Integration]
+      summary: Search for bars/restaurants
+      parameters:
+        - name: name
+          in: query
+          description: Name of the business to search for
+          schema:
+            type: string
+        - name: location
+          in: query
+          description: Location to search (default "Mexicali")
+          schema:
+            type: string
+            default: "Mexicali"
+        - name: limit
+          in: query
+          description: Maximum number of results (default 5)
+          schema:
+            type: integer
+            default: 5
+        - name: categories
+          in: query
+          description: Comma-separated list of category aliases to filter by
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of matching businesses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/YelpBusiness"
+        "500":
+          description: Search failed
+          content:
+            application/json:
+              example:
+                error: "Search failed"
+                details: "Error details"
+
+  /api/bar/{id}:
+    get:
+      tags: [Yelp Integration]
+      summary: Get details for a specific bar
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Yelp Business ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Business details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/YelpBusinessDetails"
+        "404":
+          description: Business not found
+        "500":
+          description: Error fetching business details
+
+  /api/bar/{id}/reviews:
+    get:
+      tags: [Yelp Integration]
+      summary: Get reviews for a bar
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Yelp Business ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of reviews
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/YelpReviews"
+                  - $ref: "#/components/schemas/LocalReviews"
+        "404":
+          description: No reviews available
+        "500":
+          description: Error fetching reviews
+
+  /api/bar/match:
+    post:
+      tags: [Yelp Integration]
+      summary: Match business data with Yelp listings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BusinessMatchRequest"
+      responses:
+        "200":
+          description: Matching Yelp business
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/YelpBusiness"
+        "400":
+          description: Missing required fields
+        "404":
+          description: No matching business found
+        "500":
+          description: Error matching business
+
+  /api/business/delivery:
+    get:
+      tags: [Yelp Integration]
+      summary: Find businesses offering delivery
+      parameters:
+        - name: location
+          in: query
+          required: true
+          description: Location to search
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Maximum number of results (default 5)
+          schema:
+            type: integer
+            default: 5
+        - name: categories
+          in: query
+          description: Comma-separated list of category aliases
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of businesses offering delivery
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/YelpBusiness"
+        "400":
+          description: Location parameter is required
+        "500":
+          description: Error finding delivery options
+
+  /api/autocomplete:
+    get:
+      tags: [Yelp Integration]
+      summary: Get autocomplete suggestions
+      parameters:
+        - name: text
+          in: query
+          required: true
+          description: Search text
+          schema:
+            type: string
+        - name: latitude
+          in: query
+          description: Latitude for location-based suggestions
+          schema:
+            type: number
+        - name: longitude
+          in: query
+          description: Longitude for location-based suggestions
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Autocomplete suggestions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutocompleteResponse"
+        "400":
+          description: Text parameter is required
+        "500":
+          description: Error fetching suggestions
+
+  /api/reviews/load:
+    post:
+      tags: [Utility]
+      summary: Load reviews from JSON file
+      responses:
+        "200":
+          description: Reviews loaded successfully
+          content:
+            application/json:
+              example:
+                message: "Reseñas cargadas exitosamente"
+        "500":
+          description: Error loading reviews
+
   /api/reviews:
     post:
+      tags: [Reviews]
       summary: Create a new review
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                place_id:
-                  type: string
-                user:
-                  type: string
-                rating:
-                  type: integer
-                comment:
-                  type: string
+              $ref: "#/components/schemas/ReviewInput"
       responses:
         "201":
           description: Review created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Review"
+        "400":
+          description: Missing required fields
         "500":
-          description: Server error
-  /api/reviews/load:
-    post:
-      summary: Load reviews from a JSON file
-      responses:
-        "200":
-          description: Reviews loaded successfully
-        "500":
-          description: Error loading reviews
-  /api/reviews/{place_id}:
+          description: Error creating review
+
+  /api/reviews/place/{place_id}:
     get:
+      tags: [Reviews]
       summary: Get reviews for a specific place
       parameters:
         - name: place_id
@@ -56,45 +283,114 @@ paths:
       responses:
         "200":
           description: List of reviews
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Review"
+        "404":
+          description: No reviews found
         "500":
-          description: Server error
-  /api/reviews/{id}:
-    delete:
-      summary: Delete a review by ID
+          description: Error fetching reviews
+
+  /api/reviews/user/{user_id}:
+    get:
+      tags: [Reviews]
+      summary: Get reviews by a specific user
       parameters:
-        - name: id
+        - name: user_id
           in: path
           required: true
           schema:
             type: string
       responses:
         "200":
-          description: Review deleted successfully
+          description: List of reviews
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Review"
         "404":
-          description: Review not found
+          description: No reviews found
         "500":
-          description: Server error
-  /api/upvotes:
-    post:
-      summary: Create an upvote for a place
+          description: Error fetching reviews
+
+  /api/reviews/{review_id}:
+    put:
+      tags: [Reviews]
+      summary: Update a review
+      parameters:
+        - name: review_id
+          in: path
+          required: true
+          schema:
+            type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                place_id:
-                  type: string
-                user:
-                  type: string
+              $ref: "#/components/schemas/ReviewUpdate"
+      responses:
+        "200":
+          description: Review updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Review"
+        "400":
+          description: Invalid input
+        "404":
+          description: Review not found
+        "500":
+          description: Error updating review
+    delete:
+      tags: [Reviews]
+      summary: Delete a review
+      parameters:
+        - name: review_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Review deleted
+          content:
+            application/json:
+              example:
+                message: "Review deleted successfully"
+        "404":
+          description: Review not found
+        "500":
+          description: Error deleting review
+
+  /api/upvotes:
+    post:
+      tags: [Upvotes]
+      summary: Create an upvote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpvoteInput"
       responses:
         "201":
           description: Upvote created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Upvote"
         "500":
-          description: Server error
+          description: Error creating upvote
+
   /api/upvotes/{place_id}/count:
     get:
+      tags: [Upvotes]
       summary: Get upvote count for a place
       parameters:
         - name: place_id
@@ -105,5 +401,288 @@ paths:
       responses:
         "200":
           description: Upvote count
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
         "500":
-          description: Server error
+          description: Error getting count
+
+components:
+  schemas:
+    YelpCategory:
+      type: object
+      properties:
+        alias:
+          type: string
+          example: "bars"
+        title:
+          type: string
+          example: "Bars"
+        parent_aliases:
+          type: array
+          items:
+            type: string
+          example: ["nightlife"]
+
+    YelpBusiness:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        image_url:
+          type: string
+        is_closed:
+          type: boolean
+        url:
+          type: string
+        review_count:
+          type: integer
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/YelpCategory"
+        rating:
+          type: number
+        coordinates:
+          type: object
+          properties:
+            latitude:
+              type: number
+            longitude:
+              type: number
+        transactions:
+          type: array
+          items:
+            type: string
+          example: ["delivery", "pickup"]
+        price:
+          type: string
+          example: "$$"
+        location:
+          type: object
+          properties:
+            address1:
+              type: string
+            city:
+              type: string
+            state:
+              type: string
+            country:
+              type: string
+
+    YelpBusinessDetails:
+      allOf:
+        - $ref: "#/components/schemas/YelpBusiness"
+        - type: object
+          properties:
+            hours:
+              type: array
+              items:
+                type: object
+                properties:
+                  open:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        is_overnight:
+                          type: boolean
+                        start:
+                          type: string
+                        end:
+                          type: string
+                        day:
+                          type: integer
+                  hours_type:
+                    type: string
+                  is_open_now:
+                    type: boolean
+            photos:
+              type: array
+              items:
+                type: string
+            display_phone:
+              type: string
+
+    YelpReviews:
+      type: object
+      properties:
+        reviews:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              url:
+                type: string
+              text:
+                type: string
+              rating:
+                type: number
+              time_created:
+                type: string
+                format: date-time
+              user:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  profile_url:
+                    type: string
+                  image_url:
+                    type: string
+                  name:
+                    type: string
+        total:
+          type: integer
+        possible_languages:
+          type: array
+          items:
+            type: string
+        source:
+          type: string
+          example: "yelp"
+
+    LocalReviews:
+      type: object
+      properties:
+        reviews:
+          type: array
+          items:
+            $ref: "#/components/schemas/Review"
+        total:
+          type: integer
+        source:
+          type: string
+          example: "local_database"
+
+    BusinessMatchRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "Averno"
+        address1:
+          type: string
+          example: "Av. República de Brasil 115"
+        city:
+          type: string
+          example: "Mexicali"
+        state:
+          type: string
+          example: "BCN"
+        country:
+          type: string
+          example: "MX"
+      required:
+        - name
+        - address1
+        - city
+        - state
+        - country
+
+    AutocompleteResponse:
+      type: object
+      properties:
+        terms:
+          type: array
+          items:
+            type: object
+            properties:
+              text:
+                type: string
+        businesses:
+          type: array
+          items:
+            $ref: "#/components/schemas/YelpBusiness"
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/YelpCategory"
+
+    ReviewInput:
+      type: object
+      properties:
+        place_id:
+          type: string
+          example: "L3gadQELvn69FkgrdaHNRw"
+        user_id:
+          type: string
+          example: "user123"
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          example: 4
+        comment:
+          type: string
+          example: "Great atmosphere!"
+      required:
+        - place_id
+        - user_id
+        - rating
+
+    ReviewUpdate:
+      type: object
+      properties:
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          example: 4
+        comment:
+          type: string
+          example: "Updated review text"
+
+    Review:
+      type: object
+      properties:
+        _id:
+          type: string
+        place_id:
+          type: string
+        user_id:
+          type: string
+        rating:
+          type: integer
+        comment:
+          type: string
+        date:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UpvoteInput:
+      type: object
+      properties:
+        place_id:
+          type: string
+          example: "L3gadQELvn69FkgrdaHNRw"
+        user_id:
+          type: string
+          example: "user123"
+      required:
+        - place_id
+        - user_id
+
+    Upvote:
+      type: object
+      properties:
+        _id:
+          type: string
+        place_id:
+          type: string
+        user_id:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
