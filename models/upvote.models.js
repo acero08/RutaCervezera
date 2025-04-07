@@ -1,25 +1,21 @@
 const mongoose = require('mongoose');
 
-const UpvoteSchema = mongoose.Schema({
-  place_id: {
-    type: String,
+const UpvoteSchema = new mongoose.Schema({
+  user_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
     required: true
   },
-  user: {
-    type: String,
+  bar_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Bar',
     required: true
-  },
-  date: {
-    type: Date,
-    default: Date.now
   }
 }, {
   timestamps: true
 });
 
-const Upvote = mongoose.model('Upvote', UpvoteSchema);
-module.exports = Upvote;
+// Nomas 1 voto por persona a un lugar
+UpvoteSchema.index({ user_id: 1, place_id: 1 }, { unique: true });
 
-//npm init -y 
-//npm i dotenv
-//npm i axios
+module.exports = mongoose.model('Upvote', UpvoteSchema);

@@ -16,13 +16,19 @@ const UserDetailSchema = new mongoose.Schema({
   password: {
     type: String,
     required: true
+  },
+  image:{
+    type:String
+  },
+  gender:{
+    type:String
   }
 }, {
     timestamps: true
 });
 
 const UserDetail = mongoose.model('UserDetail', UserDetailSchema);
-module.exports = Review;
+module.exports = UserDetail;
 
 
 //{

@@ -1,406 +1,1171 @@
 openapi: 3.0.0
 info:
-  title: Bar Review API
-  description: API for finding bars, managing reviews, and user interactions
+  title: Bar Management API
   version: 1.0.0
-servers:
-  - url: http://localhost:3000
-    description: Local development server
+  description: API para gestión de bares, productos, reseñas y usuarios
 
 tags:
-  - name: Yelp Integration
-    description: Endpoints that interact with Yelp's API
+  - name: Bars
+    description: Operaciones con bares
+  - name: Items
+    description: Gestión de productos (comida y bebida)
   - name: Reviews
-    description: Manage bar reviews
+    description: Operaciones con reseñas
   - name: Upvotes
-    description: Handle upvotes for bars
-  - name: Utility
-    description: Utility endpoints
+    description: Sistema de votos
+  - name: Users
+    description: Gestión de usuarios
+  - name: Comments
+    description: Gestión de comentarios
+  - name: YELP
+    description: Cosas de api yelp
 
 paths:
-  /:
-    get:
-      summary: API status check
-      responses:
-        "200":
-          description: API is running
-          content:
-            text/plain:
-              example: "API de Reviews y Upvotes"
-
-  /api/categories:
-    get:
-      tags: [Yelp Integration]
-      summary: Get all Yelp business categories
-      responses:
-        "200":
-          description: List of categories
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/YelpCategory"
-        "500":
-          description: Error fetching categories
-          content:
-            application/json:
-              example:
-                error: "Failed to get categories"
-                details: "Error details"
-
-  /api/bar/search:
-    get:
-      tags: [Yelp Integration]
-      summary: Search for bars/restaurants
-      parameters:
-        - name: name
-          in: query
-          description: Name of the business to search for
-          schema:
-            type: string
-        - name: location
-          in: query
-          description: Location to search (default "Mexicali")
-          schema:
-            type: string
-            default: "Mexicali"
-        - name: limit
-          in: query
-          description: Maximum number of results (default 5)
-          schema:
-            type: integer
-            default: 5
-        - name: categories
-          in: query
-          description: Comma-separated list of category aliases to filter by
-          schema:
-            type: string
-      responses:
-        "200":
-          description: List of matching businesses
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/YelpBusiness"
-        "500":
-          description: Search failed
-          content:
-            application/json:
-              example:
-                error: "Search failed"
-                details: "Error details"
-
-  /api/bar/{id}:
-    get:
-      tags: [Yelp Integration]
-      summary: Get details for a specific bar
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: Yelp Business ID
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Business details
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/YelpBusinessDetails"
-        "404":
-          description: Business not found
-        "500":
-          description: Error fetching business details
-
-  /api/bar/{id}/reviews:
-    get:
-      tags: [Yelp Integration]
-      summary: Get reviews for a bar
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: Yelp Business ID
-          schema:
-            type: string
-      responses:
-        "200":
-          description: List of reviews
-          content:
-            application/json:
-              schema:
-                oneOf:
-                  - $ref: "#/components/schemas/YelpReviews"
-                  - $ref: "#/components/schemas/LocalReviews"
-        "404":
-          description: No reviews available
-        "500":
-          description: Error fetching reviews
-
-  /api/bar/match:
+  # Users endpoints (existing)
+  /users/register:
     post:
-      tags: [Yelp Integration]
-      summary: Match business data with Yelp listings
+      tags: [Users]
+      summary: Registrar nuevo usuario
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/BusinessMatchRequest"
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: "Juan Pérez"
+                email:
+                  type: string
+                  format: email
+                  example: "juan@example.com"
+                mobile:
+                  type: string
+                  example: "+34 600 123 456"
+                password:
+                  type: string
+                  example: "Password123!"
+              required:
+                - name
+                - email
+                - mobile
+                - password
       responses:
-        "200":
-          description: Matching Yelp business
+        '201':
+          description: Usuario registrado exitosamente
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/YelpBusiness"
-        "400":
-          description: Missing required fields
-        "404":
-          description: No matching business found
-        "500":
-          description: Error matching business
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Usuario registrado exitosamente"
+                  data:
+                    type: object
+                    properties:
+                      _id:
+                        type: string
+                        example: 5f8d04b3ab34567890abcdef
+                      name:
+                        type: string
+                      email:
+                        type: string
+                      mobile:
+                        type: string
+                      createdAt:
+                        type: string
+                        format: date-time
+        '400':
+          description: Campos requeridos faltantes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Todos los campos son requeridos"
+        '409':
+          description: Usuario ya existe
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "El usuario ya existe"
 
-  /api/business/delivery:
-    get:
-      tags: [Yelp Integration]
-      summary: Find businesses offering delivery
-      parameters:
-        - name: location
-          in: query
-          required: true
-          description: Location to search
-          schema:
-            type: string
-        - name: limit
-          in: query
-          description: Maximum number of results (default 5)
-          schema:
-            type: integer
-            default: 5
-        - name: categories
-          in: query
-          description: Comma-separated list of category aliases
-          schema:
-            type: string
+  /users/login:
+    post:
+      tags: [Users]
+      summary: Iniciar sesión
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "juan@example.com"
+                password:
+                  type: string
+                  example: "Password123!"
+              required:
+                - email
+                - password
       responses:
-        "200":
-          description: List of businesses offering delivery
+        '200':
+          description: Login exitoso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Login exitoso"
+                  token:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        example: 5f8d04b3ab34567890abcdef
+                      name:
+                        type: string
+                        example: "Juan Pérez"
+                      email:
+                        type: string
+                        example: "juan@example.com"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Credenciales inválidas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Credenciales inválidas"
+        '404':
+          description: Usuario no encontrado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Usuario no encontrado"
+
+  /users/me:
+    post:
+      tags: [Users]
+      summary: Obtener datos del usuario autenticado
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+              required:
+                - token
+      responses:
+        '200':
+          description: Datos del usuario
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "Ok"
+                  data:
+                    $ref: '#/components/schemas/UserDetail'
+        '401':
+          description: Token inválido
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Token inválido"
+
+  /users/update:
+    put:
+      tags: [Users]
+      summary: Actualizar datos de usuario
+      consumes:
+        - multipart/form-data
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                name:
+                  type: string
+                  example: "Juan Pérez Actualizado"
+                mobile:
+                  type: string
+                  example: "+34 600 000 000"
+                gender:
+                  type: string
+                  example: "masculino"
+                password:
+                  type: string
+                  example: "NewPassword123!"
+                image:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Usuario actualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  message:
+                    type: string
+                    example: "User updated successfully"
+                  user:
+                    $ref: '#/components/schemas/UserDetail'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "error"
+                  message:
+                    type: string
+                    example: "Unauthorized"
+        '404':
+          description: Usuario no encontrado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "error"
+                  message:
+                    type: string
+                    example: "User not found"
+
+  # Bars endpoints
+  /api/bars:
+    post:
+      tags: [Bars]
+      summary: Crear un nuevo bar
+      consumes:
+        - multipart/form-data
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: "Bar Ejemplo"
+                address:
+                  type: string
+                  example: "Calle Falsa 123"
+                phonenumber:
+                  type: string
+                  example: "+34 600 123 456"
+                rating:
+                  type: number
+                  example: 4.5
+                image:
+                  type: string
+                  format: binary
+              required:
+                - name
+                - address
+                - phonenumber
+                - rating
+      responses:
+        '201':
+          description: Bar creado exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Bar creado exitosamente"
+                  bar:
+                    $ref: '#/components/schemas/Bar'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    get:
+      tags: [Bars]
+      summary: Obtener todos los bares
+      responses:
+        '200':
+          description: Lista de bares
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/YelpBusiness"
-        "400":
-          description: Location parameter is required
-        "500":
-          description: Error finding delivery options
+                  $ref: '#/components/schemas/Bar'
+        '500':
+          $ref: '#/components/responses/ServerError'
 
-  /api/autocomplete:
+  /api/bars/search:
     get:
-      tags: [Yelp Integration]
-      summary: Get autocomplete suggestions
+      tags: [Bars]
+      summary: Buscar bares por nombre
       parameters:
-        - name: text
-          in: query
-          required: true
-          description: Search text
+        - in: query
+          name: name
           schema:
             type: string
-        - name: latitude
-          in: query
-          description: Latitude for location-based suggestions
-          schema:
-            type: number
-        - name: longitude
-          in: query
-          description: Longitude for location-based suggestions
-          schema:
-            type: number
+          required: true
+          example: "Ejemplo"
       responses:
-        "200":
-          description: Autocomplete suggestions
+        '200':
+          description: Bares encontrados
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AutocompleteResponse"
-        "400":
-          description: Text parameter is required
-        "500":
-          description: Error fetching suggestions
+                type: array
+                items:
+                  $ref: '#/components/schemas/Bar'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
 
-  /api/reviews/load:
-    post:
-      tags: [Utility]
-      summary: Load reviews from JSON file
+  /api/bars/{id}:
+    get:
+      tags: [Bars]
+      summary: Obtener bar por ID
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          example: 5f8d04b3ab34567890abcdef
       responses:
-        "200":
-          description: Reviews loaded successfully
+        '200':
+          description: Bar encontrado
           content:
             application/json:
-              example:
-                message: "Reseñas cargadas exitosamente"
-        "500":
-          description: Error loading reviews
+              schema:
+                $ref: '#/components/schemas/Bar'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
 
+    put:
+      tags: [Bars]
+      summary: Actualizar bar por ID
+      consumes:
+        - multipart/form-data
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          example: 5f8d04b3ab34567890abcdef
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: "Bar Actualizado"
+                address:
+                  type: string
+                  example: "Nueva Dirección 456"
+                phonenumber:
+                  type: string
+                  example: "+34 600 789 012"
+                rating:
+                  type: number
+                  example: 4.8
+                image:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Bar actualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Bar actualizado exitosamente"
+                  bar:
+                    $ref: '#/components/schemas/Bar'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    delete:
+      tags: [Bars]
+      summary: Eliminar bar por ID
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+          required: true
+          example: 5f8d04b3ab34567890abcdef
+      responses:
+        '200':
+          description: Bar eliminado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Bar eliminado exitosamente"
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  # Menu Items Endpoints
+  /api/bars/{barId}/menu:
+    post:
+      tags: [Items]
+      summary: Crear nuevo ítem en el menú
+      consumes:
+        - multipart/form-data
+      parameters:
+        - in: path
+          name: barId
+          required: true
+          schema:
+            type: string
+          example: 5f8d04b3ab34567890abcdef
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                itemType:
+                  type: string
+                  enum: [food, drink]
+                  example: food
+                name:
+                  type: string
+                  example: "Hamburguesa clásica"
+                description:
+                  type: string
+                  example: "Carne 200g con queso cheddar"
+                price:
+                  type: number
+                  example: 12.99
+                image:
+                  type: string
+                  format: binary
+                # Food specific
+                isVegetarian:
+                  type: boolean
+                  example: false
+                calories:
+                  type: integer
+                  example: 650
+                category:
+                  type: string
+                  example: plato_principal
+                # Drink specific
+                isAlcoholic:
+                  type: boolean
+                  example: true
+                alcoholPercentage:
+                  type: number
+                  example: 5.5
+                volume:
+                  type: integer
+                  example: 330
+                servingTemperature:
+                  type: string
+                  example: frio
+              required:
+                - itemType
+                - name
+                - description
+                - price
+      responses:
+        '201':
+          description: Ítem creado exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    oneOf:
+                      - $ref: '#/components/schemas/FoodItem'
+                      - $ref: '#/components/schemas/DrinkItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    get:
+      tags: [Items]
+      summary: Obtener menú de un bar
+      parameters:
+        - in: path
+          name: barId
+          required: true
+          schema:
+            type: string
+          example: 5f8d04b3ab34567890abcdef
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: [food, drink]
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Menú obtenido exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      food:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/FoodItem'
+                      drink:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DrinkItem'
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                      limit:
+                        type: integer
+                      total:
+                        type: integer
+                      pages:
+                        type: integer
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/menu/{itemId}:
+    get:
+      tags: [Items]
+      summary: Obtener ítem por ID
+      parameters:
+        - in: path
+          name: itemId
+          required: true
+          schema:
+            type: string
+          example: 5f8d04b3ab34567890abcdef
+      responses:
+        '200':
+          description: Ítem obtenido exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    oneOf:
+                      - $ref: '#/components/schemas/FoodItem'
+                      - $ref: '#/components/schemas/DrinkItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    put:
+      tags: [Items]
+      summary: Actualizar ítem del menú
+      consumes:
+        - multipart/form-data
+      parameters:
+        - in: path
+          name: itemId
+          required: true
+          schema:
+            type: string
+          example: 5f8d04b3ab34567890abcdef
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                price:
+                  type: number
+                image:
+                  type: string
+                  format: binary
+                isAvailable:
+                  type: boolean
+                # Food specific
+                isVegetarian:
+                  type: boolean
+                calories:
+                  type: integer
+                category:
+                  type: string
+                # Drink specific
+                isAlcoholic:
+                  type: boolean
+                alcoholPercentage:
+                  type: number
+                volume:
+                  type: integer
+                servingTemperature:
+                  type: string
+      responses:
+        '200':
+          description: Ítem actualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    oneOf:
+                      - $ref: '#/components/schemas/FoodItem'
+                      - $ref: '#/components/schemas/DrinkItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    delete:
+      tags: [Items]
+      summary: Eliminar ítem del menú
+      parameters:
+        - in: path
+          name: itemId
+          required: true
+          schema:
+            type: string
+          example: 5f8d04b3ab34567890abcdef
+      responses:
+        '200':
+          description: Ítem eliminado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/bars/{barId}/menu/search:
+    get:
+      tags: [Items]
+      summary: Buscar ítems en el menú
+      parameters:
+        - in: path
+          name: barId
+          required: true
+          schema:
+            type: string
+          example: 5f8d04b3ab34567890abcdef
+        - in: query
+          name: q
+          schema:
+            type: string
+          description: Término de búsqueda
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: [food, drink]
+        - in: query
+          name: minPrice
+          schema:
+            type: number
+        - in: query
+          name: maxPrice
+          schema:
+            type: number
+      responses:
+        '200':
+          description: Resultados de búsqueda
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  count:
+                    type: integer
+                  data:
+                    type: array
+                    items:
+                      oneOf:
+                        - $ref: '#/components/schemas/FoodItem'
+                        - $ref: '#/components/schemas/DrinkItem'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  # Reviews Endpoints
   /api/reviews:
     post:
       tags: [Reviews]
-      summary: Create a new review
+      summary: Crear nueva reseña
+      security:
+        - BearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ReviewInput"
+              type: object
+              properties:
+                token:
+                  type: string
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                barId:
+                  type: string
+                  example: "5f8d04b3ab34567890abcdef"
+                rating:
+                  type: number
+                  minimum: 1
+                  maximum: 5
+                  example: 4
+                comment:
+                  type: string
+                  example: "Excelente ambiente y servicio"
+              required:
+                - token
+                - barId
+                - rating
+                - comment
       responses:
-        "201":
-          description: Review created
+        '201':
+          description: Reseña creada exitosamente
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Review"
-        "400":
-          description: Missing required fields
-        "500":
-          description: Error creating review
+                type: object
+                properties:
+                  message:
+                    type: string
+                  review:
+                    $ref: '#/components/schemas/Review'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
 
-  /api/reviews/place/{place_id}:
+  /api/bars/{id}/reviews:
     get:
       tags: [Reviews]
-      summary: Get reviews for a specific place
+      summary: Obtener reseñas de un bar
       parameters:
-        - name: place_id
-          in: path
+        - in: path
+          name: id
           required: true
           schema:
             type: string
+          example: "5f8d04b3ab34567890abcdef"
       responses:
-        "200":
-          description: List of reviews
+        '200':
+          description: Lista de reseñas
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/Review"
-        "404":
-          description: No reviews found
-        "500":
-          description: Error fetching reviews
+                  $ref: '#/components/schemas/Review'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
 
-  /api/reviews/user/{user_id}:
+  /api/users/reviews:
     get:
       tags: [Reviews]
-      summary: Get reviews by a specific user
-      parameters:
-        - name: user_id
-          in: path
-          required: true
-          schema:
-            type: string
+      summary: Obtener reseñas del usuario actual
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
       responses:
-        "200":
-          description: List of reviews
+        '200':
+          description: Lista de reseñas del usuario
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/Review"
-        "404":
-          description: No reviews found
-        "500":
-          description: Error fetching reviews
+                  $ref: '#/components/schemas/Review'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
 
-  /api/reviews/{review_id}:
+  /api/reviews/{id}:
     put:
       tags: [Reviews]
-      summary: Update a review
+      summary: Actualizar reseña
+      security:
+        - BearerAuth: []
       parameters:
-        - name: review_id
-          in: path
+        - in: path
+          name: id
           required: true
           schema:
             type: string
+          example: "5f8d04b3ab34567890abcdef"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ReviewUpdate"
+              type: object
+              properties:
+                token:
+                  type: string
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                rating:
+                  type: number
+                  minimum: 1
+                  maximum: 5
+                  example: 5
+                comment:
+                  type: string
+                  example: "Actualizado: Mejor experiencia"
+              required:
+                - token
       responses:
-        "200":
-          description: Review updated
+        '200':
+          description: Reseña actualizada
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Review"
-        "400":
-          description: Invalid input
-        "404":
-          description: Review not found
-        "500":
-          description: Error updating review
+                type: object
+                properties:
+                  message:
+                    type: string
+                  review:
+                    $ref: '#/components/schemas/Review'
+        '403':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "No puedes editar esta reseña"
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
     delete:
       tags: [Reviews]
-      summary: Delete a review
+      summary: Eliminar reseña
+      security:
+        - BearerAuth: []
       parameters:
-        - name: review_id
-          in: path
+        - in: path
+          name: id
           required: true
           schema:
             type: string
-      responses:
-        "200":
-          description: Review deleted
-          content:
-            application/json:
-              example:
-                message: "Review deleted successfully"
-        "404":
-          description: Review not found
-        "500":
-          description: Error deleting review
-
-  /api/upvotes:
-    post:
-      tags: [Upvotes]
-      summary: Create an upvote
+          example: "5f8d04b3ab34567890abcdef"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UpvoteInput"
+              type: object
+              properties:
+                token:
+                  type: string
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
       responses:
-        "201":
-          description: Upvote created
+        '200':
+          description: Reseña eliminada
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Upvote"
-        "500":
-          description: Error creating upvote
+                type: object
+                properties:
+                  message:
+                    type: string
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
 
-  /api/upvotes/{place_id}/count:
-    get:
-      tags: [Upvotes]
-      summary: Get upvote count for a place
+
+  #Comentarios endpoints
+  /api/reviews/{id}/comments:
+    post:
+      tags: [Comments]
+      summary: Crear comentario en una reseña
+      security:
+        - BearerAuth: []
       parameters:
-        - name: place_id
-          in: path
+        - in: path
+          name: id
           required: true
           schema:
             type: string
+          example: 5f8d04b3ab34567890abcdef
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                comment:
+                  type: string
+                  example: "Excelente reseña"
+              required:
+                - token
+                - comment
       responses:
-        "200":
-          description: Upvote count
+        '201':
+          description: Comentario creado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  comment:
+                    $ref: '#/components/schemas/Comment'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    get:
+      tags: [Comments]
+      summary: Obtener comentarios de una reseña
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          example: 5f8d04b3ab34567890abcdef
+      responses:
+        '200':
+          description: Lista de comentarios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Comment'
+        '404':
+          description: Sin comentarios
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "No se encontraron comentarios"
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  # Upvotes en Reviews
+  /api/reviews/{id}/upvotes:
+    post:
+      tags: [Upvotes]
+      summary: Toggle upvote en reseña
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          example: 5f8d04b3ab34567890abcdef
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_id:
+                  type: string
+                  example: 5f8d04b3ab34567890abcdef
+              required:
+                - user_id
+      responses:
+        '201':
+          description: Upvote agregado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  liked:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/UpvoteReview'
+        '200':
+          description: Upvote removido
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  liked:
+                    type: boolean
+                  message:
+                    type: string
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/reviews/{id}/upvotes/count:
+    get:
+      tags: [Upvotes]
+      summary: Conteo de upvotes en reseña
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          example: 5f8d04b3ab34567890abcdef
+      responses:
+        '200':
+          description: Conteo obtenido
           content:
             application/json:
               schema:
@@ -408,281 +1173,575 @@ paths:
                 properties:
                   count:
                     type: integer
-        "500":
-          description: Error getting count
+                    example: 15
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  # Operaciones CRUD para Reviews
+  /api/reviews/{id}:
+    put:
+      tags: [Reviews]
+      summary: Actualizar reseña
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          example: 5f8d04b3ab34567890abcdef
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                rating:
+                  type: number
+                  minimum: 1
+                  maximum: 5
+                  example: 5
+                comment:
+                  type: string
+                  example: "Experiencia actualizada"
+              required:
+                - token
+      responses:
+        '200':
+          description: Reseña actualizada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  review:
+                    $ref: '#/components/schemas/Review'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    delete:
+      tags: [Reviews]
+      summary: Eliminar reseña
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          example: 5f8d04b3ab34567890abcdef
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      responses:
+        '200':
+          description: Reseña eliminada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  #Upvotes endpoints
+  /api/upvotes:
+    post:
+      tags: [Upvotes]
+      summary: Toggle upvote para un bar
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_id:
+                  type: string
+                  example: 5f8d04b3ab34567890abcdef
+                place_id:
+                  type: string
+                  example: 5f8d04b3ab34567890abcdef
+              required:
+                - user_id
+                - place_id
+      responses:
+        '201':
+          description: Upvote agregado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  liked:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Upvote'
+        '200':
+          description: Upvote removido
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  liked:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Upvote removed"
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/upvotes/{place_id}/count:
+    get:
+      tags: [Upvotes]
+      summary: Obtener conteo de upvotes de un bar
+      parameters:
+        - in: path
+          name: place_id
+          required: true
+          schema:
+            type: string
+          example: 5f8d04b3ab34567890abcdef
+      responses:
+        '200':
+          description: Conteo de upvotes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                    example: 15
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
 
 components:
-  schemas:
-    YelpCategory:
-      type: object
-      properties:
-        alias:
-          type: string
-          example: "bars"
-        title:
-          type: string
-          example: "Bars"
-        parent_aliases:
-          type: array
-          items:
-            type: string
-          example: ["nightlife"]
+  responses:
+    # Agregar este nuevo response
+    Forbidden:
+      description: Acceso no autorizado
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "Acceso prohibido"
 
-    YelpBusiness:
+  # Mantener los schemas existentes
+  schemas:
+    Bar:
       type: object
       properties:
-        id:
+        _id:
           type: string
+          example: 5f8d04b3ab34567890abcdef
         name:
           type: string
-        image_url:
+          example: "El Bar Ejemplar"
+        address:
           type: string
-        is_closed:
-          type: boolean
-        url:
+          example: "Calle Falsa 123"
+        phonenumber:
           type: string
-        review_count:
-          type: integer
-        categories:
-          type: array
-          items:
-            $ref: "#/components/schemas/YelpCategory"
+          example: "+34 600 123 456"
         rating:
           type: number
-        coordinates:
-          type: object
-          properties:
-            latitude:
-              type: number
-            longitude:
-              type: number
-        transactions:
-          type: array
-          items:
-            type: string
-          example: ["delivery", "pickup"]
-        price:
+          minimum: 1
+          maximum: 5
+          example: 4.5
+        image:
           type: string
-          example: "$$"
-        location:
-          type: object
-          properties:
-            address1:
-              type: string
-            city:
-              type: string
-            state:
-              type: string
-            country:
-              type: string
-
-    YelpBusinessDetails:
-      allOf:
-        - $ref: "#/components/schemas/YelpBusiness"
-        - type: object
-          properties:
-            hours:
-              type: array
-              items:
-                type: object
-                properties:
-                  open:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        is_overnight:
-                          type: boolean
-                        start:
-                          type: string
-                        end:
-                          type: string
-                        day:
-                          type: integer
-                  hours_type:
-                    type: string
-                  is_open_now:
-                    type: boolean
-            photos:
-              type: array
-              items:
-                type: string
-            display_phone:
-              type: string
-
-    YelpReviews:
-      type: object
-      properties:
-        reviews:
-          type: array
-          items:
-            type: object
-            properties:
-              id:
-                type: string
-              url:
-                type: string
-              text:
-                type: string
-              rating:
-                type: number
-              time_created:
-                type: string
-                format: date-time
-              user:
-                type: object
-                properties:
-                  id:
-                    type: string
-                  profile_url:
-                    type: string
-                  image_url:
-                    type: string
-                  name:
-                    type: string
-        total:
-          type: integer
-        possible_languages:
-          type: array
-          items:
-            type: string
-        source:
+          example: "http://example.com/bar.jpg"
+        createdAt:
           type: string
-          example: "yelp"
-
-    LocalReviews:
-      type: object
-      properties:
-        reviews:
-          type: array
-          items:
-            $ref: "#/components/schemas/Review"
-        total:
-          type: integer
-        source:
+          format: date-time
+        updatedAt:
           type: string
-          example: "local_database"
-
-    BusinessMatchRequest:
-      type: object
-      properties:
-        name:
-          type: string
-          example: "Averno"
-        address1:
-          type: string
-          example: "Av. República de Brasil 115"
-        city:
-          type: string
-          example: "Mexicali"
-        state:
-          type: string
-          example: "BCN"
-        country:
-          type: string
-          example: "MX"
+          format: date-time
       required:
         - name
-        - address1
-        - city
-        - state
-        - country
-
-    AutocompleteResponse:
-      type: object
-      properties:
-        terms:
-          type: array
-          items:
-            type: object
-            properties:
-              text:
-                type: string
-        businesses:
-          type: array
-          items:
-            $ref: "#/components/schemas/YelpBusiness"
-        categories:
-          type: array
-          items:
-            $ref: "#/components/schemas/YelpCategory"
-
-    ReviewInput:
-      type: object
-      properties:
-        place_id:
-          type: string
-          example: "L3gadQELvn69FkgrdaHNRw"
-        user_id:
-          type: string
-          example: "user123"
-        rating:
-          type: integer
-          minimum: 1
-          maximum: 5
-          example: 4
-        comment:
-          type: string
-          example: "Great atmosphere!"
-      required:
-        - place_id
-        - user_id
+        - address
+        - phonenumber
         - rating
 
-    ReviewUpdate:
+    BaseItem:
       type: object
       properties:
-        rating:
-          type: integer
-          minimum: 1
-          maximum: 5
-          example: 4
-        comment:
+        _id:
           type: string
-          example: "Updated review text"
+          example: 5f8d04b3ab34567890abcdef
+        bar:
+          $ref: "#/components/schemas/Bar"
+        name:
+          type: string
+          example: "Producto base"
+        description:
+          type: string
+          example: "Descripción del producto"
+        price:
+          type: number
+          minimum: 0
+          example: 10.99
+        image:
+          type: string
+          example: "http://example.com/product.jpg"
+        isAvailable:
+          type: boolean
+          example: true
+        itemType:
+          type: string
+          enum: [DrinkItem, FoodItem]
+          example: DrinkItem
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - bar
+        - name
+        - description
+        - price
+
+    DrinkItem:
+      allOf:
+        - $ref: "#/components/schemas/BaseItem"
+        - type: object
+          properties:
+            isAlcoholic:
+              type: boolean
+              example: true
+            alcoholPercentage:
+              type: number
+              minimum: 0
+              maximum: 100
+              example: 5.5
+            volume:
+              type: number
+              minimum: 0
+              example: 330
+            category:
+              type: string
+              enum:
+                [
+                  cerveza,
+                  vino,
+                  coctel,
+                  licor,
+                  refresco,
+                  agua,
+                  jugo,
+                  cafe,
+                  te,
+                  energetica,
+                ]
+              example: cerveza
+            servingTemperature:
+              type: string
+              enum: [frio, ambiente, caliente]
+              example: frio
+          required:
+            - isAlcoholic
+            - volume
+            - category
+
+    FoodItem:
+      allOf:
+        - $ref: "#/components/schemas/BaseItem"
+        - type: object
+          properties:
+            isVegetarian:
+              type: boolean
+              example: false
+            hasGluten:
+              type: boolean
+              example: true
+            calories:
+              type: number
+              minimum: 0
+              example: 450
+            category:
+              type: string
+              enum: [entrada, plato_principal, postre, ensalada, guarnicion]
+              example: plato_principal
+          required:
+            - category
 
     Review:
       type: object
       properties:
         _id:
           type: string
-        place_id:
-          type: string
-        user_id:
-          type: string
+          example: 5f8d04b3ab34567890abcdef
+        user:
+          $ref: "#/components/schemas/UserDetail"
+        bar:
+          $ref: "#/components/schemas/Bar"
         rating:
-          type: integer
+          type: number
+          minimum: 1
+          maximum: 5
+          example: 4
         comment:
           type: string
-        date:
+          example: "Excelente ambiente y servicio"
+        createdAt:
           type: string
           format: date-time
-        updated_at:
+        updatedAt:
           type: string
           format: date-time
+      required:
+        - user
+        - bar
+        - rating
+        - comment
 
-    UpvoteInput:
+    Comment:
       type: object
       properties:
-        place_id:
+        _id:
           type: string
-          example: "L3gadQELvn69FkgrdaHNRw"
-        user_id:
+          example: 5f8d04b3ab34567890abcdef
+        user:
+          $ref: "#/components/schemas/UserDetail"
+        review:
+          $ref: "#/components/schemas/Review"
+        comment:
           type: string
-          example: "user123"
+          example: "Estoy de acuerdo con la reseña"
+        createdAt:
+          type: string
+          format: date-time
       required:
-        - place_id
-        - user_id
+        - user
+        - review
+        - comment
 
     Upvote:
       type: object
       properties:
         _id:
           type: string
-        place_id:
-          type: string
+          example: 5f8d04b3ab34567890abcdef
         user_id:
-          type: string
+          $ref: "#/components/schemas/UserDetail"
+        bar_id:
+          $ref: "#/components/schemas/Bar"
         createdAt:
           type: string
           format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - user_id
+        - bar_id
+
+    UpvoteReview:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: 5f8d04b3ab34567890abcdef
+        user_id:
+          $ref: "#/components/schemas/UserDetail"
+        review_id:
+          $ref: "#/components/schemas/Review"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - user_id
+        - review_id
+
+    UserDetail:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: 5f8d04b3ab34567890abcdef
+        name:
+          type: string
+          example: "Juan Pérez"
+        email:
+          type: string
+          format: email
+          example: "juan@example.com"
+        mobile:
+          type: string
+          example: "+34 600 123 456"
+        image:
+          type: string
+          example: "http://example.com/avatar.jpg"
+        gender:
+          type: string
+          example: "masculino"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - name
+        - email
+        - password
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+paths:
+  # Paths para Bars
+  /bars:
+    get:
+      tags: [Bars]
+      summary: Obtener todos los bares
+      responses:
+        "200":
+          description: Lista de bares
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Bar"
+    post:
+      tags: [Bars]
+      summary: Crear un nuevo bar
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Bar"
+      responses:
+        "201":
+          description: Bar creado exitosamente
+
+  # Paths para Items
+  /items:
+    get:
+      tags: [Items]
+      summary: Obtener todos los items
+      responses:
+        "200":
+          description: Lista de items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  oneOf:
+                    - $ref: "#/components/schemas/DrinkItem"
+                    - $ref: "#/components/schemas/FoodItem"
+
+  # Paths para Reviews
+  /reviews:
+    post:
+      tags: [Reviews]
+      summary: Crear una nueva reseña
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Review"
+      responses:
+        "201":
+          description: Reseña creada exitosamente
+
+  # Paths para Users
+  /users/register:
+    post:
+      tags: [Users]
+      summary: Registrar nuevo usuario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserDetail"
+      responses:
+        "201":
+          description: Usuario registrado exitosamente
+
+  /users/login:
+    post:
+      tags: [Users]
+      summary: Iniciar sesión
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: stringF
+              required:
+                - email
+                - password
+      responses:
+        "200":
+          description: Login exitoso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+    
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
