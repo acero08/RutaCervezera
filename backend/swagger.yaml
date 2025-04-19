@@ -186,7 +186,7 @@ paths:
                     type: string
                     example: "Usuario no encontrado"
 
-  /users/me:
+  /api/userdata:
     post:
       tags: [Users]
       summary: Obtener datos del usuario autenticado
@@ -226,7 +226,7 @@ paths:
                     type: string
                     example: "Token inválido"
 
-  /users/update:
+  /api/updateUser:
     put:
       tags: [Users]
       summary: Actualizar datos de usuario
@@ -1350,7 +1350,6 @@ paths:
 
 components:
   responses:
-    # Agregar este nuevo response
     Forbidden:
       description: Acceso no autorizado
       content:
@@ -1361,6 +1360,40 @@ components:
               message:
                 type: string
                 example: "Acceso prohibido"
+
+    ServerError:
+      description: Error interno del servidor
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "Internal server error"
+
+    BadRequest:
+      description: Solicitud incorrecta
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "Bad request"
+
+    NotFound:
+      description: Recurso no encontrado
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "Resource not found"
+
 
   # Mantener los schemas existentes
   schemas:
