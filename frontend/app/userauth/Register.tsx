@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { View, TextInput, Button, Alert } from "react-native";
+import { View, TextInput, Text, Alert, TouchableOpacity, Button } from "react-native";
 import { useAuth } from "../../context/AuthContext";
 import { AxiosError } from "axios";
+import { FontAwesome } from "@expo/vector-icons";
 
 const RegisterPage = () => {
   const { register } = useAuth();
@@ -35,40 +36,56 @@ const RegisterPage = () => {
   };
 
   return (
-    <View className="flex-1 p-4 bg-gray-100">
-      <TextInput
-        className="mb-4 p-2 bg-white rounded border border-gray-300"
-        placeholder="Nombre completo"
-        value={formData.name}
-        onChangeText={(text) => setFormData({ ...formData, name: text })}
-      />
+    <View className="flex-1 justify-center items-center bg-[#1E1E1E] p-4">
+      <View className="w-80 bg-[#2A2A2A] rounded-3xl p-6">
+        {/* Encabezado */}
+        <View className="relative mb-6">
+          <Text className="text-2xl font-bold text-white text-center mt-12"> Crea una cuenta </Text>
+          <Text className="text-center text-white font-bold mb-4"> ¡Crea una cuenta para conocer más cervezas! </Text>
+        </View>
 
-      <TextInput
-        className="mb-4 p-2 bg-white rounded border border-gray-300"
-        placeholder="Correo electrónico"
-        keyboardType="email-address"
-        autoCapitalize="none"
-        value={formData.email}
-        onChangeText={(text) => setFormData({ ...formData, email: text })}
-      />
+        {/* Campos de texto */}
+        <Text className="text-white font-bold mb-2"> Nombre </Text>
+        <TextInput
+          placeholder="Nombre completo"
+          placeholderTextColor="#B0B0B0"
+          value={formData.name}
+          onChangeText={(text) => setFormData({ ...formData, name: text })}
+          className="bg-[#3A3A3A] text-white p-3 mb-4 rounded-md"
+        />
 
-      <TextInput
-        className="mb-4 p-2 bg-white rounded border border-gray-300"
-        placeholder="Teléfono"
-        keyboardType="phone-pad"
-        value={formData.mobile}
-        onChangeText={(text) => setFormData({ ...formData, mobile: text })}
-      />
+        <Text className="text-white font-bold  mb-2"> Correo </Text>
+        <TextInput
+          placeholder="ejemplo@gmail.com"
+          placeholderTextColor="#B0B0B0"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          value={formData.email}
+          onChangeText={(text) => setFormData({ ...formData, email: text })}
+          className="bg-[#3A3A3A] text-white p-3 mb-4 rounded-md"
+        />
 
-      <TextInput
-        className="mb-6 p-2 bg-white rounded border border-gray-300"
-        placeholder="Contraseña"
-        secureTextEntry
-        value={formData.password}
-        onChangeText={(text) => setFormData({ ...formData, password: text })}
-      />
+        <Text className="text-white font-bold mb-2"> Contraseña </Text>
+        <View className="flex-row items-center bg-[#3A3A3A] rounded-md mb-4">
+          <TextInput
+            placeholder="********"
+            placeholderTextColor="#B0B0B0"
+            secureTextEntry
+            value={formData.password}
+            onChangeText={(text) => setFormData({ ...formData, password: text })}
+            className="flex-1 text-white p-3"
+          />
+          <FontAwesome name="eye-slash" size={20} color="#B0B0B0" className="mr-3" />
+        </View>
 
-      <Button title="Registrarse" onPress={handleSubmit} color="#3b82f6" />
+        {/* Botón para registrar */}
+        <TouchableOpacity 
+          onPress={handleSubmit} 
+          className="bg-[#FF6600] py-3 rounded-full"
+        >
+          <Text className="text-white font-bold text-center"> Crear cuenta </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };

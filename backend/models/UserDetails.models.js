@@ -22,7 +22,12 @@ const UserDetailSchema = new mongoose.Schema({
   },
   gender:{
     type:String
-  }
+  },
+  accountType:{
+    type:String,
+    enum: ['client', 'business', 'admin'],
+    default: 'client'
+  },
 }, {
     timestamps: true
 });

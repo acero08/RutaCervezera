@@ -2,7 +2,7 @@ import { View, Text } from "react-native";
 import React from "react";
 import { Tabs } from "expo-router";
 import Octicons from "@expo/vector-icons/Octicons";
-
+import FontAwesome from "@expo/vector-icons/FontAwesome";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 const Layout = () => {
@@ -24,7 +24,7 @@ const Layout = () => {
       }}
     >
       <Tabs.Screen
-        name="index"
+        name="collection"
         options={{
           title: "Search",
           headerShown: false,
@@ -33,6 +33,18 @@ const Layout = () => {
           ),
         }}
       />
+      
+      <Tabs.Screen
+        name="events"
+        options={{
+          title: "Events",
+          headerShown: false,
+          tabBarIcon: ({ color, size }) => (
+            <FontAwesome name="calendar" size={size} color={color} />
+          ),
+        }}
+      />
+
       <Tabs.Screen
         name="profile"
         options={{
@@ -40,17 +52,6 @@ const Layout = () => {
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Octicons name="person" size={size} color={color} />
-          ),
-        }}
-      />
-
-      <Tabs.Screen
-        name="collection"
-        options={{
-          title: "Saved",
-          headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="bookmarks" size={size} color={color} />
           ),
         }}
       />

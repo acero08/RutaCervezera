@@ -6,6 +6,10 @@ module.exports = {
   theme: {
     extend: {
       colors:{
+        fontFamily: {
+          sans: ["Helvetica", "Arial", "sans-serif"],
+          mono: ["Courier New", "monospace"],
+        },
         primary: '#030014',
         secondary: '#151312',
         light:{
