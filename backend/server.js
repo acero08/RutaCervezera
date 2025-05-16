@@ -355,6 +355,23 @@ app.delete("/api/bars/:id", async (req, res) => {
         //MENU //
 ////********************************************////
 
+// bebidas alcoholicas del bar
+app.get("/api/bars/:barId/alcoholic-drinks", async (req, res) => {
+    try {
+      const barId = req.params.barId;
+      console.log("Requested barId:", barId); // Debug log
+      const drinks = await DrinkItem.find({ bar: barId, isAlcoholic: true });
+      console.log("Drinks found:", drinks); // Debug log
+      if (drinks.length === 0) {
+        return res.status(404).json({ message: "No se encontraron bebidas alcohólicas para este bar" });
+      } 
+      res.status(200).json(drinks);
+    } catch (error) {
+      console.error("Error al obtener bebidas alcohólicas:", error);
+      res.status(500).json({ message: "Error al obtener bebidas alcohólicas", error });
+    }
+  });
+
 // CREATE item
 app.post("/api/bars/:barId/menu", upload.single("image"), async (req, res) => {
   try {

@@ -28,6 +28,11 @@ const BarSchema = new mongoose.Schema({
     ref: 'UserDetail',
     required: true
   },
+  // descripcion del bar 
+  description: {
+    type: String,
+    required: true
+  },
 }, { timestamps: true });
 
 const Bar = mongoose.model("Bar", BarSchema);

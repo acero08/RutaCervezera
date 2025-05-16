@@ -80,6 +80,18 @@ export default class ApiService {
         }
     }
 
+    // Jala bebidas alcoholicas del bar 
+
+    async alcoholicDrinks(id: string): Promise<any> {
+        try {
+            const { data }: AxiosResponse = await axios.get(`${this.api}/bars/${id}/alcoholic-drinks`);
+            return data;
+        } catch (error) {
+            HandleLoginError(error);
+            throw error;
+        }
+    }
+}
     // Jala los reviews pero aun no se bn como funciona el endpoint de esta madre
     // async barReviews(id: string): Promise<any> {
     //     try {
@@ -91,4 +103,3 @@ export default class ApiService {
     //     }
     // }
 
-}

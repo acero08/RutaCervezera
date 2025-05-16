@@ -1,93 +1,187 @@
-import React, { useState } from "react";
-import { View, TextInput, Text, Alert, TouchableOpacity, Button } from "react-native";
-import { useAuth } from "../../context/AuthContext";
-import { AxiosError } from "axios";
-import { FontAwesome } from "@expo/vector-icons";
+"use client"
+
+import { useState } from "react"
+import {
+  View,
+  TextInput,
+  Text,
+  Alert,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+} from "react-native"
+import { useAuth } from "../../context/AuthContext"
+import type { AxiosError } from "axios"
+import { MaterialIcons, Feather } from "@expo/vector-icons"
+import { Link } from "expo-router"
 
 const RegisterPage = () => {
-  const { register } = useAuth();
+  const { register } = useAuth()
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     mobile: "",
     password: "",
-    gender: "",
-  });
+    gender: "male", // Default value
+  })
+  const [showPassword, setShowPassword] = useState(false)
+  const [agreeToTerms, setAgreeToTerms] = useState(false)
 
   const handleSubmit = async () => {
+    if (!agreeToTerms) {
+      Alert.alert("Términos y condiciones", "Debes aceptar los términos y condiciones para continuar.")
+      return
+    }
+
     try {
-      await register(formData);
-      Alert.alert("¡Registro exitoso!", "Cuenta creada correctamente");
+      await register(formData)
+      Alert.alert("¡Registro exitoso!", "Cuenta creada correctamente")
     } catch (error) {
-      let errorMessage = "Error desconocido";
+      let errorMessage = "Error desconocido"
 
       if (error instanceof Error) {
-        errorMessage = error.message;
+        errorMessage = error.message
       }
 
       if (error && typeof error === "object" && "response" in error) {
-        const axiosError = error as AxiosError;
-        errorMessage =
-          (axiosError.response?.data as any)?.message || errorMessage;
+        const axiosError = error as AxiosError
+        errorMessage = (axiosError.response?.data as any)?.message || errorMessage
       }
 
-      Alert.alert("Error en registro", errorMessage);
+      Alert.alert("Error en registro", errorMessage)
     }
-  };
+  }
 
   return (
-    <View className="flex-1 justify-center items-center bg-[#1E1E1E] p-4">
-      <View className="w-80 bg-[#2A2A2A] rounded-3xl p-6">
-        {/* Encabezado */}
-        <View className="relative mb-6">
-          <Text className="text-2xl font-bold text-white text-center mt-12"> Crea una cuenta </Text>
-          <Text className="text-center text-white font-bold mb-4"> ¡Crea una cuenta para conocer más cervezas! </Text>
+    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} className="flex-1">
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }} style={{ backgroundColor: "#121212" }} className="flex-1">
+        <View className="flex-1 justify-center items-center p-5">
+          {/* Header */}
+          <View className="w-full flex-row items-center mb-6">
+            <Link href="/userauth/Login" asChild>
+              <TouchableOpacity className="p-2">
+                <Feather name="arrow-left" size={24} color="#d97706" />
+              </TouchableOpacity>
+            </Link>
+            <View className="flex-1 items-center">
+              <Text className="text-white text-xl font-bold">Crear cuenta</Text>
+            </View>
+            <View style={{ width: 32 }} />
+          </View>
+
+          {/* Registration Card */}
+          <View className="w-full bg-gray-900 rounded-2xl p-6 shadow-lg">
+            <Text className="text-white text-2xl font-bold mb-2">¡Únete a nosotros!</Text>
+            <Text className="text-gray-400 mb-6">Crea una cuenta para descubrir las mejores cervezas</Text>
+
+            {/* Name Field */}
+            <View className="mb-4">
+              <Text className="text-gray-400 mb-2 text-sm">Nombre completo</Text>
+              <View className="flex-row items-center bg-gray-800 rounded-xl px-3 border border-gray-700">
+                <MaterialIcons name="person" size={20} color="#d97706" />
+                <TextInput
+                  placeholder="Tu nombre"
+                  placeholderTextColor="#6b7280"
+                  value={formData.name}
+                  onChangeText={(text) => setFormData({ ...formData, name: text })}
+                  className="flex-1 text-white p-3 pl-2"
+                />
+              </View>
+            </View>
+
+            {/* Email Field */}
+            <View className="mb-4">
+              <Text className="text-gray-400 mb-2 text-sm">Correo electrónico</Text>
+              <View className="flex-row items-center bg-gray-800 rounded-xl px-3 border border-gray-700">
+                <MaterialIcons name="email" size={20} color="#d97706" />
+                <TextInput
+                  placeholder="ejemplo@gmail.com"
+                  placeholderTextColor="#6b7280"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={formData.email}
+                  onChangeText={(text) => setFormData({ ...formData, email: text })}
+                  className="flex-1 text-white p-3 pl-2"
+                />
+              </View>
+            </View>
+
+            {/* Mobile Field */}
+            <View className="mb-4">
+              <Text className="text-gray-400 mb-2 text-sm">Número de teléfono</Text>
+              <View className="flex-row items-center bg-gray-800 rounded-xl px-3 border border-gray-700">
+                <MaterialIcons name="phone" size={20} color="#d97706" />
+                <TextInput
+                  placeholder="+34 600 000 000"
+                  placeholderTextColor="#6b7280"
+                  keyboardType="phone-pad"
+                  value={formData.mobile}
+                  onChangeText={(text) => setFormData({ ...formData, mobile: text })}
+                  className="flex-1 text-white p-3 pl-2"
+                />
+              </View>
+            </View>
+
+            {/* Password Field */}
+            <View className="mb-4">
+              <Text className="text-gray-400 mb-2 text-sm">Contraseña</Text>
+              <View className="flex-row items-center bg-gray-800 rounded-xl px-3 border border-gray-700">
+                <MaterialIcons name="lock" size={20} color="#d97706" />
+                <TextInput
+                  placeholder="********"
+                  placeholderTextColor="#6b7280"
+                  secureTextEntry={!showPassword}
+                  value={formData.password}
+                  onChangeText={(text) => setFormData({ ...formData, password: text })}
+                  className="flex-1 text-white p-3 pl-2"
+                />
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                  <Feather name={showPassword ? "eye" : "eye-off"} size={20} color="#6b7280" />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Gender Selection */}
+            <View className="mb-6">
+              <Text className="text-gray-400 mb-2 text-sm">Género</Text>
+              <View className="flex-row space-x-4">
+                <TouchableOpacity
+                  className={`flex-1 flex-row items-center justify-center p-3 rounded-xl border ${
+                    formData.gender === "male" ? "bg-amber-900 border-amber-600" : "bg-gray-800 border-gray-700"
+                  }`}
+                  onPress={() => setFormData({ ...formData, gender: "male" })}
+                >
+                  <MaterialIcons name="male" size={20} color={formData.gender === "male" ? "#fbbf24" : "#6b7280"} />
+                  <Text className={`ml-2 ${formData.gender === "male" ? "text-amber-400" : "text-gray-400"}`}>
+                    Hombre
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  className={`flex-1 flex-row items-center justify-center p-3 rounded-xl border ${
+                    formData.gender === "female" ? "bg-amber-900 border-amber-600" : "bg-gray-800 border-gray-700"
+                  }`}
+                  onPress={() => setFormData({ ...formData, gender: "female" })}
+                >
+                  <MaterialIcons name="female" size={20} color={formData.gender === "female" ? "#fbbf24" : "#6b7280"} />
+                  <Text className={`ml-2 ${formData.gender === "female" ? "text-amber-400" : "text-gray-400"}`}>
+                    Mujer
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Register Button */}
+            <TouchableOpacity onPress={handleSubmit} className="bg-amber-600 py-4 rounded-xl mb-6">
+              <Text className="text-white font-bold text-center text-lg">Crear cuenta</Text>
+            </TouchableOpacity>
+
+          </View>
         </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  )
+}
 
-        {/* Campos de texto */}
-        <Text className="text-white font-bold mb-2"> Nombre </Text>
-        <TextInput
-          placeholder="Nombre completo"
-          placeholderTextColor="#B0B0B0"
-          value={formData.name}
-          onChangeText={(text) => setFormData({ ...formData, name: text })}
-          className="bg-[#3A3A3A] text-white p-3 mb-4 rounded-md"
-        />
-
-        <Text className="text-white font-bold  mb-2"> Correo </Text>
-        <TextInput
-          placeholder="ejemplo@gmail.com"
-          placeholderTextColor="#B0B0B0"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          value={formData.email}
-          onChangeText={(text) => setFormData({ ...formData, email: text })}
-          className="bg-[#3A3A3A] text-white p-3 mb-4 rounded-md"
-        />
-
-        <Text className="text-white font-bold mb-2"> Contraseña </Text>
-        <View className="flex-row items-center bg-[#3A3A3A] rounded-md mb-4">
-          <TextInput
-            placeholder="********"
-            placeholderTextColor="#B0B0B0"
-            secureTextEntry
-            value={formData.password}
-            onChangeText={(text) => setFormData({ ...formData, password: text })}
-            className="flex-1 text-white p-3"
-          />
-          <FontAwesome name="eye-slash" size={20} color="#B0B0B0" className="mr-3" />
-        </View>
-
-        {/* Botón para registrar */}
-        <TouchableOpacity 
-          onPress={handleSubmit} 
-          className="bg-[#FF6600] py-3 rounded-full"
-        >
-          <Text className="text-white font-bold text-center"> Crear cuenta </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-};
-
-export default RegisterPage;
+export default RegisterPage
