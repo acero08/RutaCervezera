@@ -23,7 +23,6 @@ const RegisterPage = () => {
     email: "",
     mobile: "",
     password: "",
-    gender: "male", // Default value
   })
   const [showPassword, setShowPassword] = useState(false)
   const [agreeToTerms, setAgreeToTerms] = useState(false)
@@ -138,36 +137,6 @@ const RegisterPage = () => {
                 />
                 <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                   <Feather name={showPassword ? "eye" : "eye-off"} size={20} color="#6b7280" />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Gender Selection */}
-            <View className="mb-6">
-              <Text className="text-gray-400 mb-2 text-sm">Género</Text>
-              <View className="flex-row space-x-4">
-                <TouchableOpacity
-                  className={`flex-1 flex-row items-center justify-center p-3 rounded-xl border ${
-                    formData.gender === "male" ? "bg-amber-900 border-amber-600" : "bg-gray-800 border-gray-700"
-                  }`}
-                  onPress={() => setFormData({ ...formData, gender: "male" })}
-                >
-                  <MaterialIcons name="male" size={20} color={formData.gender === "male" ? "#fbbf24" : "#6b7280"} />
-                  <Text className={`ml-2 ${formData.gender === "male" ? "text-amber-400" : "text-gray-400"}`}>
-                    Hombre
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  className={`flex-1 flex-row items-center justify-center p-3 rounded-xl border ${
-                    formData.gender === "female" ? "bg-amber-900 border-amber-600" : "bg-gray-800 border-gray-700"
-                  }`}
-                  onPress={() => setFormData({ ...formData, gender: "female" })}
-                >
-                  <MaterialIcons name="female" size={20} color={formData.gender === "female" ? "#fbbf24" : "#6b7280"} />
-                  <Text className={`ml-2 ${formData.gender === "female" ? "text-amber-400" : "text-gray-400"}`}>
-                    Mujer
-                  </Text>
                 </TouchableOpacity>
               </View>
             </View>

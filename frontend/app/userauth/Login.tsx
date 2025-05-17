@@ -17,6 +17,12 @@ export default function LoginScreen() {
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} className="flex-1">
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} className="flex-1" style={{ backgroundColor: "#121212" }}>
         <View className="flex-1 justify-center items-center p-5">
+          <Link href="/" asChild>
+              <TouchableOpacity className="p-2">
+                <Feather name="arrow-left" size={24} color="#d97706" />
+              </TouchableOpacity>
+            </Link>
+
           {/* Logo and Header */}
           <View className="items-center mb-8">
             <View className="w-24 h-24 bg-amber-900 rounded-full items-center justify-center mb-4">
