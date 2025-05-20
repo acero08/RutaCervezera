@@ -25,9 +25,13 @@ const UserDetailSchema = new mongoose.Schema({
   },
   accountType:{
     type:String,
-    enum: ['client', 'business', 'admin'],
-    default: 'client'
+    enum: ['user', 'business', 'admin'],
+    default: 'user'
   },
+  favorites: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Bar'
+  }]
 }, {
     timestamps: true
 });

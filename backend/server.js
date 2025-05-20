@@ -16,7 +16,7 @@ const User = require("./models/UserDetails.models.js");
 const Bar = require("./models/Bar.models.js");
 const Comment = require("./models/CommentReview.models.js");
 const UpvoteReview = require("./models/UpvoteReview.models.js");
-//const MenuItem = require("./models/MenuItem.models.js");
+const MenuItem = require("./models/MenuItem.models.js");
 const BaseItem = require('./models/BaseItem.models.js');
 const FoodItem = require('./models/FoodItem.models.js');
 const DrinkItem = require('./models/DrinkItem.models.js');
@@ -66,11 +66,246 @@ const storage = multer.diskStorage({
 // Crear el middleware de upload
 const upload = multer({ storage: storage });
 
+////********************************************////
+
+
+
+        // EVENTOS //
+////********************************************////
+
+// filtrar eventos por fecha (today, next week, next month)
+app.get("/api/events", async (req, res) => {
+  const range = req.query.range;
+  const now = new Date();
+  const start = new Date(now.setHours(0, 0, 0, 0));
+  let end; 
+
+  if (range === "today") {
+    end = new Date();
+    end.setHours(23, 59, 59, 999);
+  } else if (range === "week") {
+    end = new Date(start);
+    end.setDate(start.getDate() + 7);
+  } else if (range === "month") {
+    end = new Date(start);
+    end.setMonth(start.getMonth() + 1);
+  } else {
+    return res.status(400).json({ message: "Rango inválido" });
+  }
+
+  try {
+    const events = await Events.find({ date: { $gte: start, $lte: end } });
+    res.status(200).json(events);
+  } catch (error) {
+    res.status(500).json({ message: "Error encontrando los eventos: ", error: error.message });
+  }
+});
+
+// filtrar eventos por bar
+app.get("/api/bars/:barId/events", async (req, res) => {
+  const barId = req.params.barId;
+  const events = await events.find({ bar: barId });
+  const range = req.query.range;
+  const now = new Date();
+  const start = new Date(now.setHours(0, 0, 0, 0));
+  let end; 
+
+  if (range === "today") {
+    end = new Date();
+    end.setHours(23, 59, 59, 999);
+  } else if (range === "week") {
+    end = new Date(start);
+    end.setDate(start.getDate() + 7);
+  } else if (range === "month") {
+    end = new Date(start);
+    end.setMonth(start.getMonth() + 1);
+  } else if (range === "all") {
+    end = new Date();
+    end.setFullYear(end.getFullYear() + 1); 
+  } else {
+    return res.status(400).json({ message: "Rango inválido" });
+  }
+
+  try {
+    const events = await Events.find({ date: { $gte: start, $lte: end } });
+    res.status(200).json(events);
+  } catch (error) {
+    res.status(500).json({ message: "Error encontrando los eventos de este bar: ", error: error.message });
+  }
+});
+
+// Crear evento
+app.post("/api/bars/:barId/new-event", upload.single("image"), async (req, res) => {
+  try {
+    const { title, description, location, date } = req.body;
+    const image = req.file ? `/uploads/${req.file.filename}` : null;
+    const barId = req.params.barId;
+    let newItem
+    const bar = await Bar.findById(barId);
+
+    if (!bar) {
+      return res.status(404).json({ 
+        success: false,
+        message: "Bar no encontrado" 
+      });
+    }
+
+    newItem = new Events({
+      bar: barId,
+      title, 
+      description, 
+      location, 
+      date, 
+      image, 
+      createdAt: new Date()
+    });
+
+    await newItem.save();
+
+    res.status(201).json({ 
+      success: true,
+      message: "Ítem creado exitosamente",
+      data: newItem
+    });
+  }
+  catch (error) {
+    console.error("Error al crear evento:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Error interno del servidor",
+      error: error.message 
+    });
+  }
+});
+
+// Eliminar evento
+app.delete("/api/bars/:barId/events/:eventId", async (req, res) => {
+  const { barId, eventId } = req.params;
+
+  try {
+    const bar = await Bar.findById(barId);
+    if (!bar) {
+      return res.status(404).json({ message: "Bar no encontrado" });
+    }
+
+    const event = await Events.findById(eventId);
+    if (!event) {
+      return res.status(404).json({ message: "Evento no encontrado" });
+    }
+
+    await event.remove();
+    res.status(200).json({ message: "Evento eliminado exitosamente" });
+  } catch (error) {
+    res.status(500).json({ message: "Error al eliminar el evento", error });
+  }
+});
+
+// Actualizar evento
+app.put("/api/bars/:barId/events/:eventId", upload.single("image"), async (req, res) => {
+  const { barId, eventId } = req.params;
+  const { title, description, location, date } = req.body;
+  const image = req.file ? `/uploads/${req.file.filename}` : null;
+  
+  try {
+    const bar = await Bar.findById(barId);
+    if (!bar) {
+      return res.status(404).json({ message: "Bar no encontrado" });
+    }
+
+    const event = await Events.findById(eventId);
+    if (!event) {
+      return res.status(404).json({ message: "Evento no encontrado" });
+    }
+
+    event.title = title || event.title;
+    event.description = description || event.description;
+    event.location = location || event.location;
+    event.date = date || event.date;
+    event.image = image || event.image;
+    await event.save();
+
+    res.status(200).json({ message: "Evento actualizado exitosamente", event });
+  
+  } catch (error) {
+    res.status(500).json({ message: "Error al actualizar el evento", error });
+  }
+  
+});
+
+////********************************************////
+
+
+
+        // FAVORITOS //
+////********************************************////
+
+// agregar / quitar de favoritos un bar
+app.post('/api/users/:userId/favorites/:barId', async (req, res) => {
+  try {
+    const { userId, barId } = req.params;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "Usuario no encontrado" });
+    }
+
+    const alreadyFavorited = user.favorites.includes(barId);
+
+    if (alreadyFavorited) {
+      // Remove from favorites
+      user.favorites = user.favorites.filter(fav => fav.toString() !== barId);
+    } else {
+      // Add to favorites
+      user.favorites.push(barId);
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: alreadyFavorited ? "El bar fue eliminado de favoritos" : "El bar fue añadido a favoritos",
+      data: user.favorites
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error al modificar favoritos", error: error.message });
+  }
+});
+
+// mostrar todos los bares que le pusiste favorito
+app.get('/api/users/:userId/favorites', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findById(userId).populate('favorites');
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "Usuario no encontrado" });
+    }
+
+    res.status(200).json({ success: true, data: user.favorites });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error al obtener favoritos", error: error.message });
+  }
+});
 
         //TODO LO DE LOGIN Y REGISTER //
 ////********************************************////
 
 const JWT_SECRET="asdk4923078sdkfjnbg;kljdtg1908234n1lik523fasdgf2jsabnd3893jvaso213dtn[]]be5r90ew5b"
+
+// para ver a los usuarios 
+app.get("/api/users", async (req, res) => {
+    try {
+      const UserDetails = require('./models/UserDetails.models');
+      const users = await UserDetails.find();
+        if (users.length === 0) {
+          return res.status(404).json({ message: "No se encontraron usuarios" });
+        } 
+        res.status(200).json(users);
+    } catch (error) {
+      res.status(500).json({ message: "Error al obtener a los usuarios", error: error.message });
+    }
+});
 
 app.post("/api/register", async (req, res) => {
   try {
@@ -202,6 +437,7 @@ app.post("/api/userdata", async(req,res)=>{
     return res.send({error: error});
   }
 })
+
 //Update User
 app.put("/api/updateUser", upload.single("image"), async (req, res) => {
   try {
@@ -359,9 +595,7 @@ app.delete("/api/bars/:id", async (req, res) => {
 app.get("/api/bars/:barId/alcoholic-drinks", async (req, res) => {
     try {
       const barId = req.params.barId;
-      console.log("Requested barId:", barId); // Debug log
       const drinks = await DrinkItem.find({ bar: barId, isAlcoholic: true });
-      console.log("Drinks found:", drinks); // Debug log
       if (drinks.length === 0) {
         return res.status(404).json({ message: "No se encontraron bebidas alcohólicas para este bar" });
       } 
@@ -369,6 +603,35 @@ app.get("/api/bars/:barId/alcoholic-drinks", async (req, res) => {
     } catch (error) {
       console.error("Error al obtener bebidas alcohólicas:", error);
       res.status(500).json({ message: "Error al obtener bebidas alcohólicas", error });
+    }
+  });
+
+  // comida del bar
+  app.get("/api/bars/:barId/food", async (req, res) => {
+    try {
+      const barId = req.params.barId;
+      const food = await MenuItem.find({ bar: barId, itemType: 'food' });
+      if (food.length === 0) {
+        return res.status(404).json({ message: "No se encontró comida registrada para este bar" });
+      } 
+      res.status(200).json(food);
+    } catch (error) {
+      console.error("Error al obtener bebidas alcohólicas:", error);
+      res.status(500).json({ message: "Error al encontrar la comida registrada para este bar: ", error });
+    }
+  });
+
+  // bebidas del bar
+  app.get("/api/bars/:barId/drinks", async (req, res) => {
+    try {
+      const barId = req.params.barId;
+      const drinks = await DrinkItem.find({ bar: barId, isAlcoholic: false });
+      if (drinks.length === 0) {
+        return res.status(404).json({ message: "No se encontraron bebidas registradas para este bar" });
+      } 
+      res.status(200).json(drinks);
+    } catch (error) {
+      res.status(500).json({ message: "Error al encontrar las bebidas registradas para este bar:", error });
     }
   });
 
@@ -676,7 +939,6 @@ app.delete("/api/menu/:itemId", async (req, res) => {
   }
 });
 
-
 ////********************************************////
 
 
@@ -850,6 +1112,7 @@ app.post("/api/reviews/:id/comments", async (req, res) => {
     res.status(500).json({ message: "Error al crear el comentario", error });
   }
 });
+
 // UPDATE
 app.put("/api/reviews/:id", async (req, res) => {
   const { token, rating, comment } = req.body;

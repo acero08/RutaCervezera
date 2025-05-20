@@ -22,12 +22,6 @@ const BarSchema = new mongoose.Schema({
   image: {
     type: String
   },
-  //cada bar está asociado a un dueño, si no hay dueño lo ponemos con el admin
-  owner: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'UserDetail',
-    required: true
-  },
   // descripcion del bar 
   description: {
     type: String,
