@@ -91,6 +91,51 @@ export default class ApiService {
             throw error;
         }
     }
+
+    // Jala la comida del bar 
+    async foodBar (id:string): Promise<any> {
+        try {
+            const { data }: AxiosResponse = await axios.get (`${this.api}/bars/${id}/food`);
+            return data;
+        } catch (error) {
+            HandleLoginError(error);
+            throw error;
+        }
+    }
+
+    //Jala la bebida del bar 
+    async drinkBar (id:string): Promise<any> {
+        try {
+            const { data }: AxiosResponse = await axios.get (`${this.api}/bars/${id}/drinks`);
+            return data;
+        } catch (error) {
+            HandleLoginError(error);
+            throw error;
+        }
+    }
+
+    // jala la bebida por id
+    async getMenuItemById(itemId: string): Promise<any> {
+        try {
+            const { data }: AxiosResponse = await axios.get(`${this.api}/menu/${itemId}`);
+            return data;
+        } catch (error) {
+            HandleLoginError(error);
+            throw error;
+        }
+        }
+
+    // jala los favoritos de un usuario
+    async getUserFavorites(userId: string): Promise<any[]> {
+        const { data }: AxiosResponse = await axios.get(`${this.api}/users/${userId}/favorites`);
+        return data.data;
+    }
+
+    // deja hacerle favorito a un bar
+    async toggleFavorite(userId: string, barId: string): Promise<any> {
+        const { data }: AxiosResponse = await axios.post(`${this.api}/users/${userId}/favorites/${barId}`);
+        return data;
+     }
 }
     // Jala los reviews pero aun no se bn como funciona el endpoint de esta madre
     // async barReviews(id: string): Promise<any> {

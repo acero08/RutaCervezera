@@ -1,6 +1,7 @@
 "use client"
 
-import { View, Text, ScrollView, ActivityIndicator, StyleSheet, TouchableOpacity } from "react-native"
+import { View, Text, ScrollView, ActivityIndicator, StyleSheet, TouchableOpacity, Dimensions } from "react-native"
+import { useRouter } from "expo-router";
 import { useEffect, useState } from "react"
 import { useLocalSearchParams } from "expo-router"
 import BarService from "../../services/BarService"
@@ -11,26 +12,31 @@ const BarDetails = () => {
   const { id } = useLocalSearchParams()
   const [bar, setBar] = useState<any>(null)
   const [menu, setMenu] = useState<any[]>([])
-  const [alcoholicMenu, setAlcoholicMenu] = useState<any[]>([])
+  const [foodItems, setFoodItems] = useState<any[]>([])
+  const [drinkItems, setDrinkItems] = useState<any[]>([])
+  const [alcoholItems, setAlcoholItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [isFavorite, setIsFavorite] = useState(false) // esto es nomas para tener el boton, luego hay que implementar la logica de favoritos
+  const [isFavorite, setIsFavorite] = useState(false) 
+  const router = useRouter();
 
   useEffect(() => {
     const fetchBarDetails = async () => {
       try {
-        const [barData, menuData, alcoholData] = await Promise.all([
+        const [barData, menuData] = await Promise.all([
           api.barDetails(id as string),
           api.barMenu(id as string),
-          api.alcoholicDrinks(id as string)
         ])
 
         setBar(barData)
         const food = menuData.data?.food || []
         const drink = menuData.data?.drink || []
-        const alcohol = alcoholData.data || []
+        const alcoholic = drink.filter((item: any) => item.isAlcoholic)
+        const nonAlcoholic = drink.filter((item: any) => !item.isAlcoholic)
 
+        setFoodItems(food)
+        setAlcoholItems(alcoholic)
+        setDrinkItems(nonAlcoholic)
         setMenu([...food, ...drink])
-        setAlcoholicMenu(alcohol)
       } catch (error) {
         console.error("Error al cargar detalles del bar:", error)
       } finally {
@@ -53,6 +59,43 @@ const BarDetails = () => {
       </View>
     )
 
+  // aqui se muestra la info del menu separado por categorias
+  const renderMenuSection = (
+    title: string,
+    items: any[],
+    iconName: React.ComponentProps<typeof Ionicons>["name"]
+    ) => {
+      if (!items || items.length === 0) return null;
+        
+      return (
+        <View style={styles.menuSection}>
+          <Text style={styles.menuTitle}>{title} ({items.length})</Text>
+          <View style={styles.menuGrid}>
+            {items.map((item, index) => (
+              <TouchableOpacity 
+                key={`${title}-${index}`}
+                style={styles.menuItemWrapper} 
+                onPress={() => router.push(`/bars/drink/${item._id}`)}
+              >
+              <View style={styles.menuItem}>
+                <View style={styles.menuImagePlaceholder}>
+                  <Ionicons name={iconName} size={40} color="#FFA500" />
+                </View>
+                <View style={styles.menuContent}>
+                  <Text style={styles.menuItemName} numberOfLines={1}>{item.name}</Text>
+                  <Text style={styles.menuItemDescription} numberOfLines={2}>
+                    {item.description || "Producto del bar"}
+                  </Text>
+                  <Text style={styles.menuItemPrice}>${item.price}</Text>
+                </View>
+              </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+          );
+  };
+
   return (
     <ScrollView style={styles.container}>
       {/* Header */}
@@ -64,10 +107,12 @@ const BarDetails = () => {
           <Ionicons name="beer" size={80} color="#FFA500" />
         </View>
 
-        <TouchableOpacity style={styles.backButton} onPress={() => history.back()}>
+        {/* irte pa atras */}
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={24} color="white" />
         </TouchableOpacity>
 
+        {/* favoritos */}
         <TouchableOpacity style={styles.favoriteButton} onPress={toggleFavorite}>
           <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={24} color={isFavorite ? "#FFA500" : "white"} />
         </TouchableOpacity>
@@ -89,30 +134,18 @@ const BarDetails = () => {
         {bar.description || `${bar.name} son unos aburridos y no quisieron poner una descripción. ¿Su bebida será igual de aburrida?`}
       </Text>
 
-      {/* aqui iria lo del alcohol */}
-
-      {/* Menú de comidas y bebidas */}
-      {menu.length > 0 && (
-        <>
-          <Text style={styles.menuTitle}>Menú ({menu.length})</Text>
-          <View style={styles.menuGrid}>
-            {menu.map((item, index) => (
-              <View key={index} style={styles.menuItem}>
-                <View style={styles.menuImagePlaceholder}>
-                  <Ionicons name="restaurant" size={40} color="#FFA500" />
-                </View>
-                <Text style={styles.menuItemName}>{item.name}</Text>
-                <Text style={styles.menuItemDescription}>{item.description || "Producto del bar"}</Text>
-                <Text style={styles.menuItemPrice}>${item.price}</Text>
-              </View>
-            ))}
-          </View>
-        </>
-      )}
+      {/* secciones del menu */}
+      {renderMenuSection("Comida", foodItems, "restaurant")}
+      {renderMenuSection("Bebidas Alcohólicas", alcoholItems, "wine")}
+      {renderMenuSection("Bebidas", drinkItems, "cafe")}
 
     </ScrollView>
   )
 }
+
+// esto es por q el grid se movio todo, ln le dije al v0 que lo arreglara y puso esto
+const { width } = Dimensions.get('window');
+const itemWidth = (width - 32) / 2; 
 
 const styles = StyleSheet.create({
   container: {
@@ -195,45 +228,65 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 16,
   },
+  menuSection: {
+    marginBottom: 24,
+  },
   menuTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "bold",
     color: "white",
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#333",
+    marginBottom: 8,
   },
   menuGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     paddingHorizontal: 8,
-    paddingBottom: 24,
   },
-  menuItem: {
+  menuItemWrapper: {
     width: "50%",
     padding: 8,
   },
+  menuItem: {
+    backgroundColor: "#1E1E1E",
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#333",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+    height: 220, // Fixed height for consistency
+  },
   menuImagePlaceholder: {
     backgroundColor: "#2A2A2A",
-    borderRadius: 12,
     height: 120,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 8,
+  },
+  menuContent: {
+    padding: 12,
   },
   menuItemName: {
     fontSize: 16,
     fontWeight: "bold",
     color: "white",
-    marginBottom: 2,
+    marginBottom: 4,
   },
   menuItemDescription: {
     fontSize: 12,
     color: "#999",
-    marginBottom: 4,
+    marginBottom: 8,
+    height: 32, // Fixed height for 2 lines
   },
   menuItemPrice: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "bold",
     color: "#FFA500",
   },

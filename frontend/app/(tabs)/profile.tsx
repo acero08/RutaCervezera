@@ -4,9 +4,11 @@ import { useAuth } from "../../context/AuthContext"
 import LoginScreen from "../userauth/Login"
 import UserInfo from "../userauth/UserInfo"
 import { Feather, MaterialIcons } from "@expo/vector-icons"
+import { useRouter } from "expo-router";
 
 export default function Profile() {
   const { user } = useAuth()
+  const router = useRouter();
 
   if (!user) {
     return <LoginScreen />
@@ -29,12 +31,12 @@ export default function Profile() {
             />
             <View className="ml-4">
               <Text className="text-white text-xl font-bold">{user.name || "Usuario"}</Text>
-              <Text className="text-amber-500">{user.email || "mr no puso su correo"}</Text>
+              <Text className="text-amber-500">{user.email || "no puso su correo"}</Text>
             </View>
           </View>
 
           <View className="flex-row border-t border-gray-800 divide-x divide-gray-800">
-            <TouchableOpacity className="flex-1 py-3 flex-row justify-center items-center">
+            <TouchableOpacity onPress={() => router.push(`/favorite/favorites`)} className="flex-1 py-3 flex-row justify-center items-center">
               <MaterialIcons name="favorite" size={18} color="#d97706" />
               <Text className="text-white ml-2">Favoritos</Text>
             </TouchableOpacity>
