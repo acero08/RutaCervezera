@@ -8,6 +8,7 @@ const axios = require('axios');
 const bcrypt = require("bcryptjs")
 const jwt= require('jsonwebtoken')
 const multer = require("multer");
+const Events = require("./models/Events.models.js");
 const Review = require("./models/Review.models.js");
 const Upvote = require("./models/Upvote.models.js");
 const User = require("./models/UserDetails.models.js");
