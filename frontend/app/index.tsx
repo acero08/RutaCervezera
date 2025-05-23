@@ -1,94 +1,119 @@
-import { Text, View, Image, TouchableOpacity, StatusBar, Dimensions } from "react-native"
-import { LinearGradient } from "expo-linear-gradient"
-import { BlurView } from "expo-blur"
-
-const { width } = Dimensions.get("window")
-const imageSize = width * 0.8
+// Index.tsx
+import React from "react";
+import {
+  Text,
+  View,
+  Image,
+  TouchableOpacity,
+  Platform,
+  useWindowDimensions,
+  SafeAreaView,
+} from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { Link } from "expo-router";
 
 export default function Index() {
+  const { width } = useWindowDimensions();
+  const isWeb = Platform.OS === "web";
+  const imageSize = isWeb ? Math.min(width * 0.4, 300) : width * 0.75;
+
   return (
-    <>
-      <StatusBar barStyle="light-content" backgroundColor="#121212" />
-      <LinearGradient colors={["#121212", "#1E1E1E"]} className="flex-1 justify-between">
-        {/* Top Section */}
-        <View className="items-center pt-16 px-6">
-          <Text className="text-3xl text-white font-bold mb-2">RUTA CERVECERA</Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#121212" }}>
+      <LinearGradient
+        colors={["#121212", "#1E1E1E"]}
+        style={{ flex: 1, justifyContent: "space-between" }}
+      >
+        {/* Header */}
+        <View className="items-center pt-12 px-6">
+          <Text className="text-3xl md:text-4xl text-white font-bold mb-2">
+            RUTA CERVECERA
+          </Text>
           <View className="h-1 w-24 bg-[#FF6600] rounded-full mb-4" />
-
-          <Text className="text-white text-xl text-center mb-6">Hola borrachín, ¿Qué plan hoy?</Text>
+          <Text className="text-white text-lg text-center mb-6">
+            Hola borrachín, ¿Qué plan hoy?
+          </Text>
         </View>
 
-        {/* Center Image Section */}
+        {/* Imagen */}
         <View className="items-center justify-center">
-          <View className="shadow-2xl">
-            <Image
-              source={require("../assets/images/perrito.png")}
-              style={{
-                width: imageSize,
-                height: imageSize,
-                borderRadius: 24,
-              }}
-              resizeMode="cover"
-            />
-
-            {/* Overlay Text */}
-            <View className="absolute bottom-6 left-0 right-0 items-center">
-              <BlurView intensity={80} tint="dark" className="rounded-xl overflow-hidden">
-                <View className="px-6 py-3">
-                  <Text className="text-white text-center font-bold text-lg">
-                    Para los cachanillas amantes de la cerveza
-                  </Text>
-                </View>
-              </BlurView>
-            </View>
-          </View>
+          <Image
+            source={require("../assets/images/cheve.png")}
+            style={{
+              width: imageSize,
+              height: imageSize,
+              borderRadius: 20,
+            }}
+            resizeMode="contain"
+          />
         </View>
 
-        {/* Bottom Section */}
-        <View className="items-center mb-12">
-          {/* Main Button with Gradient */}
-          <TouchableOpacity className="mb-10 rounded-full overflow-hidden shadow-lg" activeOpacity={0.8}>
-            <LinearGradient
-              colors={["#FF6600", "#FF8C00"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              className="py-4 px-16"
+        {/* Texto abajo de la imagen */}
+        <View className="px-8 mt-4">
+          <Text
+            style={{
+              color: "#fff",
+              fontSize: isWeb ? 16 : 14,
+              textAlign: "center",
+              backgroundColor: "rgba(0,0,0,0.5)",
+              padding: 12,
+              borderRadius: 12,
+            }}
+          >
+            Para los cachanillas amantes de la cerveza
+          </Text>
+        </View>
+
+        {/* Botón principal */}
+        <View className="items-center mt-6">
+          <Link href="/userauth/Login" asChild>
+            <TouchableOpacity
+              className="rounded-full overflow-hidden shadow-lg"
+              activeOpacity={0.85}
             >
-              <Text className="text-white font-bold text-xl tracking-wide"><a href = 'userauth/Login'> TRAIGO SED </a></Text>
-            </LinearGradient>
-          </TouchableOpacity>
-
-          {/* Auth Links with Improved Styling */}
-          <View className="flex-row justify-between w-full px-10">
-            <TouchableOpacity className="px-4 py-2">
-              <Text className="text-white font-bold text-lg">
-                <a href="userauth/Login" className="text-white">
-                  Iniciar Sesión
-                </a>
-              </Text>
-              <View className="h-0.5 w-full bg-[#FF6600] mt-1" />
+              <LinearGradient
+                colors={["#FF6600", "#FF8C00"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                className="py-4 px-16"
+              >
+                <Text className="text-white font-bold text-xl tracking-wide text-center">
+                  TRAIGO SED
+                </Text>
+              </LinearGradient>
             </TouchableOpacity>
-
-            <TouchableOpacity className="px-4 py-2">
-              <Text className="text-white font-bold text-lg">
-                <a href="userauth/Register" className="text-white">
-                  Crear Cuenta
-                </a>
-              </Text>
-              <View className="h-0.5 w-full bg-[#FF6600] mt-1" />
-            </TouchableOpacity>
-          </View>
+          </Link>
         </View>
 
-        {/* Footer Decoration */}
-        <View className="pb-8 w-full">
+        {/* Links de sesión y registro */}
+        <View className="flex-row justify-between w-full px-12 mt-6">
+          <Link href="/userauth/Login" asChild>
+            <TouchableOpacity className="items-center px-4 py-2 w-1/2">
+              <Text className="text-white font-semibold text-base text-center">
+                Iniciar Sesión
+              </Text>
+              <View className="h-0.5 w-full bg-[#FF6600] mt-1" />
+            </TouchableOpacity>
+          </Link>
+
+          <Link href="/userauth/Register" asChild>
+            <TouchableOpacity className="items-center px-4 py-2 w-1/2">
+              <Text className="text-white font-semibold text-base text-center">
+                Crear Cuenta
+              </Text>
+              <View className="h-0.5 w-full bg-[#FF6600] mt-1" />
+            </TouchableOpacity>
+          </Link>
+        </View>
+
+        {/* Footer indicador */}
+        <View className="pb-6 pt-4 w-full">
           <View className="flex-row justify-center">
-            <View className="h-1 w-16 bg-[#FF6600] rounded-full mx-1 opacity-30" />
-            <View className="h-1 w-16 bg-[#FF6600] rounded-full mx-1 opacity-60" />
-            <View className="h-1 w-16 bg-[#FF6600] rounded-full mx-1 opacity-90" />
+            <View className="h-1 w-12 bg-[#FF6600] rounded-full mx-1 opacity-30" />
+            <View className="h-1 w-12 bg-[#FF6600] rounded-full mx-1 opacity-60" />
+            <View className="h-1 w-12 bg-[#FF6600] rounded-full mx-1 opacity-100" />
           </View>
         </View>
       </LinearGradient>
-    </>
-  )
+    </SafeAreaView>
+  );
 }
