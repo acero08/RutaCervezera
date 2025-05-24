@@ -96,15 +96,10 @@ export default class ApiService {
         console.log("Processing image:", image);
 
         if (Platform.OS === "web") {
-          // Web handling - Direct File object
           if (image instanceof File) {
-            console.log("Adding File directly to FormData");
             formData.append("image", image);
-          } else {
-            console.log("Image is not a File instance on web, skipping");
           }
         } else {
-          // React Native handling
           if (typeof image === "object" && "uri" in image) {
             const mobileImage = {
               uri: image.uri,
@@ -116,13 +111,11 @@ export default class ApiService {
         }
       }
 
-      console.log("Sending request to server...");
-
       const config = {
         headers: {
           "Content-Type": "multipart/form-data",
         },
-        timeout: 30000, // 30 second timeout
+        timeout: 30000,
       };
 
       const { data } = await axios.put(
@@ -131,7 +124,6 @@ export default class ApiService {
         config
       );
 
-      console.log("Update response:", data);
       return data;
     } catch (error: any) {
       console.error("Error en updateUser:", error);

@@ -7,16 +7,34 @@ import { useRouter } from "expo-router";
 import { useState, useEffect } from "react";
 
 export default function Profile() {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const router = useRouter();
   const [imageKey, setImageKey] = useState(Date.now()); // Force image refresh
 
-  // Update image key when user changes
+  // Update image key when user changes or when component focuses
   useEffect(() => {
     if (user?.image) {
       setImageKey(Date.now());
     }
   }, [user?.image]);
+
+  // Listen for focus events to refresh user data
+  useEffect(() => {
+    const unsubscribe = router.canGoBack?.() // Check if navigation is available
+      ? undefined
+      : (() => {
+          // For web or when navigation focus events aren't available
+          const handleFocus = () => {
+            refreshUser();
+            setImageKey(Date.now());
+          };
+
+          window.addEventListener("focus", handleFocus);
+          return () => window.removeEventListener("focus", handleFocus);
+        })();
+
+    return unsubscribe;
+  }, [refreshUser, router]);
 
   if (!user) {
     return <LoginScreen />;
@@ -28,11 +46,16 @@ export default function Profile() {
       let imageUrl = user.image;
 
       if (!imageUrl.startsWith("http")) {
-        imageUrl = `http://localhost:3000${imageUrl}`;
+        // Remove leading slash if present to avoid double slash
+        if (imageUrl.startsWith("/")) {
+          imageUrl = imageUrl.substring(1);
+        }
+        imageUrl = `http://localhost:3000/${imageUrl}`;
       }
 
+      // Add cache busting parameter
       return {
-        uri: `${imageUrl}?v=${imageKey}`, // Cache busting with version
+        uri: `${imageUrl}?v=${imageKey}`,
       };
     }
     return require("../../assets/images/placeholder.png");
@@ -42,11 +65,27 @@ export default function Profile() {
     logout();
   };
 
+  const handleEditProfile = () => {
+    router.push("/userauth/EditProfile");
+  };
+
+  const handleRefreshProfile = async () => {
+    try {
+      await refreshUser();
+      setImageKey(Date.now()); // Force image refresh
+    } catch (error) {
+      console.error("Error refreshing profile:", error);
+    }
+  };
+
   return (
     <View className="flex-1" style={{ backgroundColor: "#121212" }}>
       {/* Header */}
-      <View className="px-4 pt-12 pb-4 border-b border-gray-800">
+      <View className="px-4 pt-12 pb-4 border-b border-gray-800 flex-row items-center justify-between">
         <Text className="text-white text-2xl font-bold">Mi Perfil</Text>
+        <TouchableOpacity onPress={handleRefreshProfile} className="p-2">
+          <MaterialIcons name="refresh" size={24} color="#d97706" />
+        </TouchableOpacity>
       </View>
 
       <ScrollView className="flex-1">
@@ -58,12 +97,9 @@ export default function Profile() {
               className="rounded-full bg-gray-800"
               style={{ width: 80, height: 80 }}
               resizeMode="cover"
-              key={`profile-${user._id}-${imageKey}`} // Better key strategy
+              key={`profile-img-${user._id}-${Date.now()}`} // Clave única para forzar recarga
               onError={(error) => {
                 console.error("Error loading profile image:", error);
-              }}
-              onLoad={() => {
-                console.log("Profile image loaded successfully");
               }}
             />
             <View className="ml-4 flex-1">
@@ -133,7 +169,7 @@ export default function Profile() {
         <View className="bg-gray-900 mx-4 mb-4 rounded-xl overflow-hidden">
           <TouchableOpacity
             className="flex-row items-center p-4 border-b border-gray-800"
-            onPress={() => router.push("/userauth/EditProfile")}
+            onPress={handleEditProfile}
           >
             <MaterialIcons name="edit" size={22} color="#d97706" />
             <Text className="text-white ml-3 flex-1">Editar perfil</Text>

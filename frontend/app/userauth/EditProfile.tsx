@@ -10,6 +10,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Modal,
 } from "react-native";
 import { MaterialIcons, Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -31,6 +32,7 @@ export default function EditProfile() {
   const [loading, setLoading] = useState(false);
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [imageKey, setImageKey] = useState(Date.now());
   const [userData, setUserData] = useState<UserData>({
     name: user?.name || "",
     email: user?.email || "",
@@ -38,27 +40,22 @@ export default function EditProfile() {
     gender: user?.gender || "",
     image: user?.image || "",
   });
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   useEffect(() => {
-    // Set initial image URI based on user data
     if (user?.image) {
       console.log("User image from context:", user.image);
-
-      // Check if it's already a full URL
       if (user.image.startsWith("http")) {
         setImageUri(user.image);
       } else {
-        // Handle the image path from database
         let imagePath = user.image;
-
-        // Remove leading slash if present
         if (imagePath.startsWith("/")) {
           imagePath = imagePath.slice(1);
         }
-
-        // Construct full URL
         const fullUrl = `http://localhost:3000/${imagePath}`;
-        console.log("Constructed image URL:", fullUrl);
         setImageUri(fullUrl);
       }
     }
@@ -66,110 +63,111 @@ export default function EditProfile() {
 
   const pickImage = async () => {
     if (Platform.OS === "web") {
-      console.log("Web image picker called");
+      return new Promise<void>((resolve) => {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "image/*";
+        input.style.display = "none";
 
-      // Create a proper file input
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = "image/*";
+        const handleFileSelect = (event: Event) => {
+          const target = event.target as HTMLInputElement;
+          const file = target.files?.[0];
 
-      input.onchange = (event: any) => {
-        const file = event.target.files[0];
-        console.log("File selected:", file);
+          const cleanup = () => {
+            try {
+              input.removeEventListener("change", handleFileSelect);
+              if (document.body.contains(input)) {
+                document.body.removeChild(input);
+              }
+            } catch (error) {
+              console.log("Cleanup error:", error);
+            }
+          };
 
-        if (file) {
-          // Validate file type
+          if (!file) {
+            cleanup();
+            resolve();
+            return;
+          }
+
           if (!file.type.startsWith("image/")) {
             Alert.alert("Error", "Por favor selecciona una imagen válida");
+            cleanup();
+            resolve();
             return;
           }
 
-          // Validate file size (5MB max)
           if (file.size > 5 * 1024 * 1024) {
             Alert.alert("Error", "La imagen debe ser menor a 5MB");
+            cleanup();
+            resolve();
             return;
           }
 
-          console.log("File is valid, processing...");
-
-          // Store the actual File object for upload
           setSelectedFile(file);
-
-          // Create preview URL using FileReader
           const reader = new FileReader();
+
           reader.onload = (e) => {
             const result = e.target?.result as string;
-            console.log("Image preview created");
             setImageUri(result);
+            setImageKey(Date.now());
+            cleanup();
+            resolve();
           };
+
           reader.onerror = (error) => {
             console.error("FileReader error:", error);
             Alert.alert("Error", "No se pudo procesar la imagen");
+            cleanup();
+            resolve();
           };
+
           reader.readAsDataURL(file);
-        }
-      };
+        };
 
-      // Clean up any previous input
-      input.value = "";
-      input.click();
-    } else {
-      const { status } =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert("Error", "Se necesitan permisos para acceder a las fotos");
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
+        input.addEventListener("change", handleFileSelect);
+        document.body.appendChild(input);
+        input.click();
       });
+    } else {
+      try {
+        const { status } =
+          await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== "granted") {
+          Alert.alert(
+            "Error",
+            "Se necesitan permisos para acceder a las fotos"
+          );
+          return;
+        }
 
-      if (!result.canceled) {
-        setImageUri(result.assets[0].uri);
-        setSelectedFile(null);
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 0.8,
+        });
+
+        if (!result.canceled) {
+          setImageUri(result.assets[0].uri);
+          setSelectedFile(null);
+          setImageKey(Date.now());
+        }
+      } catch (error) {
+        console.error("Error picking image on mobile:", error);
+        Alert.alert("Error", "No se pudo acceder a la galería");
       }
-    }
-  };
-
-  const takePhoto = async () => {
-    if (Platform.OS === "web") {
-      Alert.alert("Error", "La cámara no está disponible en la versión web");
-      return;
-    }
-
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Error", "Se necesitan permisos para acceder a la cámara");
-      return;
-    }
-
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (!result.canceled) {
-      setImageUri(result.assets[0].uri);
-      setSelectedFile(null);
     }
   };
 
   const showImageOptions = () => {
-    console.log("Camera icon clicked");
     if (Platform.OS === "web") {
-      Alert.alert("Seleccionar foto", "Elige una opción", [
-        { text: "Cancelar", style: "cancel" },
-        { text: "Elegir archivo", onPress: pickImage },
-      ]);
+      pickImage().catch((error) => {
+        console.error("Error in pickImage:", error);
+      });
     } else {
       Alert.alert("Seleccionar foto", "Elige una opción", [
         { text: "Cancelar", style: "cancel" },
-        { text: "Tomar foto", onPress: takePhoto },
         { text: "Elegir de galería", onPress: pickImage },
       ]);
     }
@@ -183,20 +181,16 @@ export default function EditProfile() {
 
     setLoading(true);
     try {
-      console.log("Starting profile update...");
       const apiService = ApiService.getInstance();
-
       let imageFile = null;
 
       if (Platform.OS === "web" && selectedFile) {
-        console.log("Using selected file for web:", selectedFile.name);
         imageFile = selectedFile;
       } else if (
         imageUri &&
         !imageUri.includes("localhost") &&
         Platform.OS !== "web"
       ) {
-        console.log("Using image URI for mobile:", imageUri);
         imageFile = {
           uri: imageUri,
           type: "image/jpeg",
@@ -204,30 +198,26 @@ export default function EditProfile() {
         } as any;
       }
 
-      console.log("Calling API updateUser with imageFile:", !!imageFile);
+      const updateData = {
+        name: userData.name,
+        email: userData.email,
+        mobile: userData.mobile,
+        gender: userData.gender,
+        currentPassword: showPasswordModal ? currentPassword : undefined,
+        newPassword: showPasswordModal && newPassword ? newPassword : undefined,
+      };
 
-      const result = await apiService.updateUser(
-        token!,
-        {
-          name: userData.name,
-          email: userData.email,
-          mobile: userData.mobile,
-          gender: userData.gender,
-        },
-        imageFile
-      );
+      const result = await apiService.updateUser(token!, updateData, imageFile);
 
-      console.log("API result:", result);
-
-      // Update context with the returned user data
       if (result.user) {
         updateUserContext(result.user);
-        console.log("User context updated");
-      }
+        setImageKey(Date.now());
+        setShowPasswordModal(false);
 
-      Alert.alert("Éxito", "Perfil actualizado correctamente", [
-        { text: "OK", onPress: () => router.back() },
-      ]);
+        Alert.alert("Éxito", "Perfil actualizado correctamente", [
+          { text: "OK", onPress: () => router.back() },
+        ]);
+      }
     } catch (error: any) {
       console.error("Error updating profile:", error);
       const errorMessage =
@@ -240,15 +230,43 @@ export default function EditProfile() {
     }
   };
 
-  // Get display image source
+  const handleChangePassword = () => {
+    if (newPassword !== confirmPassword) {
+      Alert.alert("Error", "Las contraseñas no coinciden");
+      return;
+    }
+    handleUpdateProfile();
+  };
+
   const getImageSource = () => {
     if (imageUri) {
-      console.log("Displaying image:", imageUri);
+      if (imageUri.includes("localhost")) {
+        return { uri: `${imageUri}?v=${imageKey}` };
+      }
       return { uri: imageUri };
     }
-    console.log("Using placeholder image");
     return require("../../assets/images/placeholder.png");
   };
+
+  const ProfileImageTouchable = () => (
+    <TouchableOpacity
+      onPress={showImageOptions}
+      className="relative"
+      activeOpacity={0.7}
+      style={{ minWidth: 120, minHeight: 120 }}
+    >
+      <Image
+        key={`profile-image-${imageKey}`}
+        source={getImageSource()}
+        className="w-30 h-30 rounded-full bg-gray-800"
+        style={{ width: 120, height: 120 }}
+        onError={(error) => console.log("Error loading image:", error)}
+      />
+      <View className="absolute bottom-0 right-0 bg-amber-600 rounded-full p-2">
+        <MaterialIcons name="camera-alt" size={20} color="#fff" />
+      </View>
+    </TouchableOpacity>
+  );
 
   return (
     <KeyboardAvoidingView
@@ -279,22 +297,7 @@ export default function EditProfile() {
       <ScrollView className="flex-1 px-4">
         {/* Profile Picture Section */}
         <View className="items-center py-6">
-          <TouchableOpacity onPress={showImageOptions} className="relative">
-            <Image
-              source={getImageSource()}
-              className="w-30 h-30 rounded-full bg-gray-800"
-              style={{ width: 120, height: 120 }}
-              onError={(error) => {
-                console.log("Error loading image:", error);
-              }}
-              onLoad={() => {
-                console.log("Image loaded successfully");
-              }}
-            />
-            <View className="absolute bottom-0 right-0 bg-amber-600 rounded-full p-2">
-              <MaterialIcons name="camera-alt" size={20} color="#fff" />
-            </View>
-          </TouchableOpacity>
+          <ProfileImageTouchable />
           <Text className="text-gray-400 mt-2 text-center">
             Toca para cambiar tu foto de perfil
           </Text>
@@ -333,11 +336,7 @@ export default function EditProfile() {
               placeholderTextColor="#6b7280"
               keyboardType="email-address"
               autoCapitalize="none"
-              editable={false}
             />
-            <Text className="text-gray-500 text-xs mt-1">
-              El email no se puede modificar
-            </Text>
           </View>
 
           {/* Mobile Field */}
@@ -424,12 +423,7 @@ export default function EditProfile() {
           {/* Change Password Button */}
           <TouchableOpacity
             className="bg-gray-900 rounded-xl p-4 flex-row items-center justify-between"
-            onPress={() => {
-              Alert.alert(
-                "Próximamente",
-                "Función de cambio de contraseña en desarrollo"
-              );
-            }}
+            onPress={() => setShowPasswordModal(true)}
           >
             <View className="flex-row items-center">
               <MaterialIcons name="lock" size={22} color="#d97706" />
@@ -442,6 +436,79 @@ export default function EditProfile() {
         {/* Bottom Spacing */}
         <View className="h-8" />
       </ScrollView>
+
+      {/* Password Change Modal */}
+      <Modal
+        visible={showPasswordModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowPasswordModal(false)}
+      >
+        <View className="flex-1 justify-center items-center bg-black/70 p-4">
+          <View className="bg-gray-900 rounded-xl p-6 w-full max-w-md">
+            <Text className="text-white text-xl font-bold mb-4">
+              Cambiar contraseña
+            </Text>
+
+            <Text className="text-amber-500 text-sm font-semibold mb-2">
+              Contraseña actual
+            </Text>
+            <TextInput
+              value={currentPassword}
+              onChangeText={setCurrentPassword}
+              className="text-white bg-gray-800 rounded-lg p-3 mb-4"
+              placeholder="Ingresa tu contraseña actual"
+              placeholderTextColor="#6b7280"
+              secureTextEntry={true}
+            />
+
+            <Text className="text-amber-500 text-sm font-semibold mb-2">
+              Nueva contraseña
+            </Text>
+            <TextInput
+              value={newPassword}
+              onChangeText={setNewPassword}
+              className="text-white bg-gray-800 rounded-lg p-3 mb-4"
+              placeholder="Ingresa tu nueva contraseña"
+              placeholderTextColor="#6b7280"
+              secureTextEntry={true}
+            />
+
+            <Text className="text-amber-500 text-sm font-semibold mb-2">
+              Confirmar nueva contraseña
+            </Text>
+            <TextInput
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              className="text-white bg-gray-800 rounded-lg p-3 mb-6"
+              placeholder="Confirma tu nueva contraseña"
+              placeholderTextColor="#6b7280"
+              secureTextEntry={true}
+            />
+
+            <View className="flex-row justify-end space-x-3">
+              <TouchableOpacity
+                onPress={() => setShowPasswordModal(false)}
+                className="px-4 py-2 rounded-lg bg-gray-700"
+              >
+                <Text className="text-white">Cancelar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleChangePassword}
+                disabled={loading}
+                className={`px-4 py-2 rounded-lg ${
+                  loading ? "bg-gray-600" : "bg-amber-600"
+                }`}
+              >
+                <Text className="text-white font-semibold">
+                  {loading ? "Guardando..." : "Guardar cambios"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }

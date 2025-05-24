@@ -31,7 +31,7 @@ type AuthContextType = {
   logout: () => void;
   fetchUser: () => Promise<void>;
   updateUserContext: (userData: User) => void;
-  refreshUser: () => Promise<void>; // New method for force refresh
+  refreshUser: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -66,12 +66,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
           if (storedUser) {
             // Use stored user data first for faster loading
-            setUser(JSON.parse(storedUser));
+            const parsedUser = JSON.parse(storedUser);
+            setUser(parsedUser);
+            console.log("Loaded user from storage:", parsedUser.image);
           }
 
           // Then fetch fresh data from server
           try {
             const userData = await api.getUserData(storedToken);
+            console.log("Fresh user data from server:", userData.image);
             setUser(userData);
             // Update stored user data
             await AsyncStorage.setItem("user", JSON.stringify(userData));
@@ -93,7 +96,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     try {
       const storedToken = await AsyncStorage.getItem("token");
       if (storedToken) {
+        console.log("Fetching user data from server...");
         const userData = await api.getUserData(storedToken);
+
+        // Agrega un parámetro de caché único para forzar la actualización
+        if (userData.image) {
+          userData.image = `${userData.image}?v=${Date.now()}`;
+        }
+
+        console.log("Fetched user data:", userData.image);
         setUser(userData);
         await AsyncStorage.setItem("user", JSON.stringify(userData));
       }
@@ -104,6 +115,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const refreshUser = async () => {
     // Force refresh user data from server
+    console.log("Refreshing user data...");
     await fetchUser();
   };
 
@@ -157,6 +169,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const updateUserContext = async (userData: User) => {
     try {
+      console.log("Updating user context with:", userData.image);
       setUser(userData);
       await AsyncStorage.setItem("user", JSON.stringify(userData));
       console.log("User context updated with new data");
