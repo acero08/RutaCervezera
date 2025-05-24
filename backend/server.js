@@ -481,7 +481,7 @@ app.put("/api/updateUser", upload.single("image"), async (req, res) => {
     console.log("Body:", req.body);
     console.log("File:", req.file ? "Image uploaded" : "No image");
 
-    const { token, name, mobile, gender } = req.body;
+    const { token, name, email, mobile, gender, currentPassword, newPassword } = req.body;
     
     if (!token) {
       return res.status(400).json({ 
@@ -512,7 +512,43 @@ app.put("/api/updateUser", upload.single("image"), async (req, res) => {
 
     console.log("User found:", user.email);
 
-    // Actualizar campos básicos
+    // Verificar si se está cambiando el email
+    if (email && email.trim() && email !== user.email) {
+      // Verificar si el nuevo email ya existe
+      const emailExists = await User.findOne({ email: email.trim() });
+      if (emailExists) {
+        return res.status(400).json({
+          status: "error",
+          message: "El correo electrónico ya está en uso"
+        });
+      }
+      user.email = email.trim();
+    }
+
+    // Verificar si se está cambiando la contraseña
+    if (newPassword && newPassword.trim()) {
+      if (!currentPassword) {
+        return res.status(400).json({
+          status: "error",
+          message: "La contraseña actual es requerida"
+        });
+      }
+      
+      // Verificar contraseña actual
+      const isMatch = await bcrypt.compare(currentPassword, user.password);
+      if (!isMatch) {
+        return res.status(400).json({
+          status: "error",
+          message: "La contraseña actual es incorrecta"
+        });
+      }
+      
+      // Hashear nueva contraseña
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(newPassword.trim(), salt);
+    }
+
+    // Actualizar otros campos básicos
     if (name && name.trim()) user.name = name.trim();
     if (mobile && mobile.trim()) user.mobile = mobile.trim();
     if (gender && gender.trim()) user.gender = gender.trim();
@@ -568,7 +604,6 @@ app.put("/api/updateUser", upload.single("image"), async (req, res) => {
     });
   }
 });
-
 ////********************************************////
 // Rutas
 app.get("/", (req, res) => {
