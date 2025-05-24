@@ -10,7 +10,7 @@ const UserDetailSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
-  moblile: {
+  mobile: {
     type: String,
   },
   password: {

@@ -28,6 +28,7 @@ const port = 3000;
 
 app.use(cors());
 app.use(express.json());
+app.use("/uploads", express.static("uploads"));
 
 // Hace load al Swagger YAML file
 const swaggerDocument = YAML.load("./swagger.yaml");
@@ -55,7 +56,7 @@ mongoose.connect("mongodb+srv://andreacero:A.acero2020@backenddb.0peewj7.mongodb
 // IMAGENES
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, "uploads/"); // La carpeta donde se guardarán las imágenes
+    cb(null, "uploads/"); 
   },
   filename: (req, file, cb) => {
     cb(null, Date.now() + "-" + file.originalname); // Nombre único para el archivo
@@ -64,6 +65,12 @@ const storage = multer.diskStorage({
 
 // Crear el middleware de upload
 const upload = multer({ storage: storage });
+
+const path = require('path');
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 ////********************************************////
 
@@ -422,54 +429,143 @@ app.post("/api/login", async (req, res) => {
   }
 });
 
-//User
-app.post("/api/userdata", async(req,res)=>{
-  const {token}= req.body;
-  try{
-    const user = jwt.verify(token,JWT_SECRET);
-    const useremail = user.email
 
-    User.findOne({email: useremail}).then((data)=>{
-      return res.send({status: "Ok", data: data});
+//User
+app.post("/api/userdata", async (req, res) => {
+  const { token } = req.body;
+  try {
+    if (!token) {
+      return res.status(400).json({ 
+        status: "error", 
+        message: "Token requerido" 
+      });
+    }
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const userData = await User.findById(decoded.userId);
+    
+    if (!userData) {
+      return res.status(404).json({ 
+        status: "error", 
+        message: "Usuario no encontrado" 
+      });
+    }
+
+    // Return user data without password
+    const userResponse = userData.toObject();
+    delete userResponse.password;
+
+    res.json({ 
+      status: "ok", 
+      data: userResponse 
     });
-  } catch (error){
-    return res.send({error: error});
-  }
-})
+  } catch (error) {
+    console.error("Error in /api/userdata:", error);
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ 
+        status: "error", 
+        message: "Token inválido" 
+      });
+    }
+    res.status(500).json({ 
+      status: "error", 
+      message: "Error interno del servidor",
+      details: error.message 
+    });
+  } });
 
 //Update User
 app.put("/api/updateUser", upload.single("image"), async (req, res) => {
   try {
-    const { token, name, mobile, gender, password } = req.body;
-    const image = req.file ? req.file.filename : null;
+    console.log("Update user request received");
+    console.log("Body:", req.body);
+    console.log("File:", req.file ? "Image uploaded" : "No image");
 
+    const { token, name, mobile, gender } = req.body;
+    
     if (!token) {
-      return res.status(401).json({ status: "error", message: "Unauthorized" });
+      return res.status(400).json({ 
+        status: "error", 
+        message: "Token requerido" 
+      });
     }
 
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const user = await User.findOne({ email: decoded.email });
-
+    // Decodificar el token
+    let decoded;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch (error) {
+      return res.status(401).json({ 
+        status: "error", 
+        message: "Token inválido" 
+      });
+    }
+    
+    // Buscar usuario
+    const user = await User.findById(decoded.userId);
     if (!user) {
-      return res.status(404).json({ status: "error", message: "User not found" });
+      return res.status(404).json({ 
+        status: "error", 
+        message: "Usuario no encontrado" 
+      });
     }
 
-   
-    if (name) user.name = name;
-    if (mobile) user.mobile = mobile;
-    if (gender) user.gender = gender;
-    if (image) user.image = image;
+    console.log("User found:", user.email);
 
-    if (password) {
-      user.password = await bcrypt.hash(password, 10);
+    // Actualizar campos básicos
+    if (name && name.trim()) user.name = name.trim();
+    if (mobile && mobile.trim()) user.mobile = mobile.trim();
+    if (gender && gender.trim()) user.gender = gender.trim();
+
+    // Manejar imagen
+    if (req.file) {
+      console.log("Processing uploaded image:", req.file.filename);
+      // Eliminar imagen anterior si existe
+      if (user.image && user.image.includes('/uploads/')) {
+        const oldImagePath = path.join(__dirname, user.image.replace('http://localhost:3000', ''));
+        if (fs.existsSync(oldImagePath)) {
+          try {
+            fs.unlinkSync(oldImagePath);
+            console.log("Old image deleted");
+          } catch (error) {
+            console.log("Error deleting old image:", error.message);
+          }
+        }
+      }
+      
+      // Guardar nueva imagen - solo el path relativo
+      user.image = `/uploads/${req.file.filename}`;
     }
 
-    await user.save();
+    // Guardar cambios
+    const updatedUser = await user.save();
+    console.log("User updated successfully");
 
-    res.status(200).json({ status: "ok", message: "User updated successfully", user });
+    // Preparar respuesta sin datos sensibles
+    const userResponse = updatedUser.toObject();
+    delete userResponse.password;
+
+    // Generar nuevo token con tiempo de expiración extendido
+    const newToken = jwt.sign(
+      { userId: user._id, email: user.email }, 
+      JWT_SECRET, 
+      { expiresIn: "7d" }
+    );
+
+    res.status(200).json({
+      status: "ok",
+      message: "Usuario actualizado correctamente",
+      user: userResponse,
+      token: newToken
+    });
+
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ status: "error", message: "Internal server error" });
+    console.error("Error en updateUser:", error);
+    res.status(500).json({ 
+      status: "error", 
+      message: "Error interno del servidor",
+      details: error.message 
+    });
   }
 });
 

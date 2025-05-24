@@ -10,14 +10,28 @@ import { useRouter } from "expo-router";
 import ApiService from "../services/ApiService";
 import { RegisterData } from "@/types";
 
+interface User {
+  _id?: string;
+  id?: string;
+  name?: string;
+  email?: string;
+  mobile?: string;
+  gender?: string;
+  image?: string;
+  accountType?: string;
+  [key: string]: any;
+}
+
 type AuthContextType = {
-  user: any | null;
+  user: User | null;
   token: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (userData: RegisterData) => Promise<void>;
   logout: () => void;
   fetchUser: () => Promise<void>;
+  updateUserContext: (userData: User) => void;
+  refreshUser: () => Promise<void>; // New method for force refresh
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,7 +50,7 @@ type AuthProviderProps = {
 
 export const AuthProvider = ({ children }: AuthProviderProps) => {
   const router = useRouter();
-  const [user, setUser] = useState<any | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const api = ApiService.getInstance();
@@ -45,13 +59,29 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     const checkLogin = async () => {
       try {
         const storedToken = await AsyncStorage.getItem("token");
+        const storedUser = await AsyncStorage.getItem("user");
+
         if (storedToken) {
-          const userData = await api.getUserData(storedToken);
-          setUser(userData);
           setToken(storedToken);
+
+          if (storedUser) {
+            // Use stored user data first for faster loading
+            setUser(JSON.parse(storedUser));
+          }
+
+          // Then fetch fresh data from server
+          try {
+            const userData = await api.getUserData(storedToken);
+            setUser(userData);
+            // Update stored user data
+            await AsyncStorage.setItem("user", JSON.stringify(userData));
+          } catch (error) {
+            console.error("Error fetching fresh user data:", error);
+            // If server fetch fails, keep using stored data
+          }
         }
       } catch (error) {
-        console.error(error);
+        console.error("Error in checkLogin:", error);
       } finally {
         setLoading(false);
       }
@@ -60,19 +90,33 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, []);
 
   const fetchUser = async () => {
-    const storedToken = await AsyncStorage.getItem("token");
-    if (storedToken) {
-      const userData = await api.getUserData(storedToken);
-      setUser(userData);
+    try {
+      const storedToken = await AsyncStorage.getItem("token");
+      if (storedToken) {
+        const userData = await api.getUserData(storedToken);
+        setUser(userData);
+        await AsyncStorage.setItem("user", JSON.stringify(userData));
+      }
+    } catch (error) {
+      console.error("Error in fetchUser:", error);
     }
   };
 
+  const refreshUser = async () => {
+    // Force refresh user data from server
+    await fetchUser();
+  };
+
   const handleAuth = async (auth: any) => {
-    await AsyncStorage.setItem("token", auth.token);
-    await AsyncStorage.setItem("user", JSON.stringify(auth.user));
-    setToken(auth.token);
-    setUser(auth.user);
-    router.replace("/(tabs)/profile");
+    try {
+      await AsyncStorage.setItem("token", auth.token);
+      await AsyncStorage.setItem("user", JSON.stringify(auth.user));
+      setToken(auth.token);
+      setUser(auth.user);
+      router.replace("/(tabs)/profile");
+    } catch (error) {
+      console.error("Error in handleAuth:", error);
+    }
   };
 
   const login = async (email: string, password: string) => {
@@ -80,7 +124,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const auth = await api.login(email, password);
       await handleAuth(auth);
     } catch (error) {
-      console.error(error);
+      console.error("Login error:", error);
       throw error;
     }
   };
@@ -95,16 +139,30 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       );
       await handleAuth(auth);
     } catch (error) {
-      console.error(error);
+      console.error("Register error:", error);
       throw error;
     }
   };
 
   const logout = async () => {
-    await AsyncStorage.clear();
-    setUser(null);
-    setToken(null);
-    router.replace("/userauth/Login");
+    try {
+      await AsyncStorage.clear();
+      setUser(null);
+      setToken(null);
+      router.replace("/userauth/Login");
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  };
+
+  const updateUserContext = async (userData: User) => {
+    try {
+      setUser(userData);
+      await AsyncStorage.setItem("user", JSON.stringify(userData));
+      console.log("User context updated with new data");
+    } catch (error) {
+      console.error("Error updating user context:", error);
+    }
   };
 
   return (
@@ -117,6 +175,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         register,
         logout,
         fetchUser,
+        updateUserContext,
+        refreshUser,
       }}
     >
       {children}
