@@ -8,34 +8,52 @@ import {
   StyleSheet,
   TouchableOpacity,
   Dimensions,
+  Modal,
+  TextInput,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { useLocalSearchParams } from "expo-router";
 import BarService from "../../services/BarService";
 import { Ionicons } from "@expo/vector-icons";
+import { useAuth } from "../../context/AuthContext";
+import ApiService from "../../services/ApiService";
 
 const BarDetails = () => {
   const api = BarService.getInstance();
+  const authApi = ApiService.getInstance();
   const { id } = useLocalSearchParams();
+  const { user, token } = useAuth();
   const [bar, setBar] = useState<any>(null);
   const [menu, setMenu] = useState<any[]>([]);
   const [foodItems, setFoodItems] = useState<any[]>([]);
   const [drinkItems, setDrinkItems] = useState<any[]>([]);
   const [alcoholItems, setAlcoholItems] = useState<any[]>([]);
+  const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewText, setReviewText] = useState("");
+  const [rating, setRating] = useState(5);
+  const [userReview, setUserReview] = useState<any>(null);
   const router = useRouter();
 
+  const { width } = Dimensions.get("window");
+  const itemWidth = (width - 32) / 2;
+
   useEffect(() => {
-    const fetchBarDetails = async () => {
+    const fetchData = async () => {
       try {
-        const [barData, menuData] = await Promise.all([
+        const [barData, menuData, reviewsData] = await Promise.all([
           api.barDetails(id as string),
           api.barMenu(id as string),
+          authApi.getBarReviews(id as string),
         ]);
 
         setBar(barData);
+        setReviews(reviewsData.data || []);
+
         const food = menuData.data?.food || [];
         const drink = menuData.data?.drink || [];
         const alcoholic = drink.filter((item: any) => item.isAlcoholic);
@@ -44,30 +62,146 @@ const BarDetails = () => {
         setFoodItems(food);
         setAlcoholItems(alcoholic);
         setDrinkItems(nonAlcoholic);
-        setMenu([...food, ...drink]);
+
+        if (user) {
+          const userRev = reviewsData.data.find(
+            (r: any) => r.user._id === user.id || r.user._id === user._id
+          );
+          setUserReview(userRev);
+        }
       } catch (error) {
-        console.error("Error al cargar detalles del bar:", error);
+        console.error("Error cargando datos:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchBarDetails();
-  }, [id]);
+    fetchData();
+  }, [id, user]);
 
   const toggleFavorite = () => {
     setIsFavorite(!isFavorite);
-    // Aquí implementarías la lógica para guardar favoritos en tu API
+    // Lógica para guardar favoritos
   };
 
-  if (loading)
+  const handleSubmitReview = async () => {
+    if (!token) {
+      Alert.alert("Error", "Debes iniciar sesión para dejar una reseña");
+      return;
+    }
+
+    if (!reviewText.trim()) {
+      Alert.alert("Error", "La reseña no puede estar vacía");
+      return;
+    }
+
+    try {
+      if (userReview) {
+        const response = await authApi.editReview(
+          userReview._id,
+          token,
+          rating,
+          reviewText
+        );
+        setReviews(
+          reviews.map((r) =>
+            r._id === userReview._id ? response.data.review : r
+          )
+        );
+        setUserReview(response.data.review);
+      } else {
+        const response = await authApi.createBarReview(
+          id as string,
+          token,
+          rating,
+          reviewText
+        );
+        setReviews([...reviews, response.data.review]);
+        setUserReview(response.data.review);
+      }
+
+      setShowReviewModal(false);
+      Alert.alert("Éxito", "Reseña guardada correctamente");
+    } catch (error) {
+      console.error("Error guardando reseña:", error);
+      Alert.alert("Error", "No se pudo guardar la reseña");
+    }
+  };
+
+  const handleDeleteReview = async () => {
+    if (!userReview) return;
+
+    try {
+      await authApi.deleteReview(userReview._id, token!);
+      setReviews(reviews.filter((r) => r._id !== userReview._id));
+      setUserReview(null);
+      setShowReviewModal(false);
+      Alert.alert("Éxito", "Reseña eliminada correctamente");
+    } catch (error) {
+      console.error("Error eliminando reseña:", error);
+      Alert.alert("Error", "No se pudo eliminar la reseña");
+    }
+  };
+
+  const renderStars = (value: number) => {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FFA500" />
+      <View style={styles.starsContainer}>
+        {[1, 2, 3, 4, 5].map((star) => (
+          <TouchableOpacity
+            key={star}
+            onPress={() => setRating(star)}
+            disabled={!!userReview}
+          >
+            <Ionicons
+              name={star <= value ? "star" : "star-outline"}
+              size={28}
+              color="#FFA500"
+            />
+          </TouchableOpacity>
+        ))}
       </View>
     );
+  };
 
-  // aqui se muestra la info del menu separado por categorias
+  const renderReview = (review: any) => (
+    <View key={review._id} style={styles.reviewCard}>
+      <View style={styles.reviewHeader}>
+        <Ionicons name="person-circle" size={24} color="#FFA500" />
+        <Text style={styles.reviewAuthor}>{review.user.name}</Text>
+        <View style={styles.reviewRating}>
+          {[...Array(5)].map((_, i) => (
+            <Ionicons
+              key={i}
+              name={i < review.rating ? "star" : "star-outline"}
+              size={16}
+              color="#FFA500"
+            />
+          ))}
+        </View>
+      </View>
+      <Text style={styles.reviewText}>{review.comment}</Text>
+      {user &&
+        (user.id === review.user._id || user._id === review.user._id) && (
+          <View style={styles.reviewActions}>
+            <TouchableOpacity
+              onPress={() => {
+                setRating(review.rating);
+                setReviewText(review.comment);
+                setShowReviewModal(true);
+              }}
+            >
+              <Text style={styles.actionText}>Editar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleDeleteReview}>
+              <Text style={[styles.actionText, styles.deleteText]}>
+                Eliminar
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+    </View>
+  );
+
   const renderMenuSection = (
     title: string,
     items: any[],
@@ -108,18 +242,22 @@ const BarDetails = () => {
     );
   };
 
+  if (loading)
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#FFA500" />
+      </View>
+    );
+
   return (
     <ScrollView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}></View>
 
-      {/* Imagen y botones */}
       <View style={styles.imageContainer}>
         <View style={styles.imagePlaceholder}>
           <Ionicons name="beer" size={80} color="#FFA500" />
         </View>
 
-        {/* irte pa atras */}
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
@@ -127,7 +265,6 @@ const BarDetails = () => {
           <Ionicons name="chevron-back" size={24} color="white" />
         </TouchableOpacity>
 
-        {/* favoritos */}
         <TouchableOpacity
           style={styles.favoriteButton}
           onPress={toggleFavorite}
@@ -140,7 +277,6 @@ const BarDetails = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Calificación */}
       <View style={styles.ratingContainer}>
         <View style={styles.ratingItem}>
           <Ionicons name="star" size={18} color="#FFA500" />
@@ -148,26 +284,101 @@ const BarDetails = () => {
         </View>
       </View>
 
-      {/* Nombre */}
       <Text style={styles.barName}>{bar.name}</Text>
 
-      {/* Descripción */}
       <Text style={styles.description}>
         {bar.description ||
           `${bar.name} son unos aburridos y no quisieron poner una descripción. ¿Su bebida será igual de aburrida?`}
       </Text>
 
-      {/* secciones del menu */}
       {renderMenuSection("Comida", foodItems, "restaurant")}
       {renderMenuSection("Bebidas Alcohólicas", alcoholItems, "wine")}
       {renderMenuSection("Bebidas", drinkItems, "cafe")}
+
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Reseñas ({reviews.length})</Text>
+          <TouchableOpacity
+            onPress={() =>
+              user ? setShowReviewModal(true) : router.push("/userauth/Login")
+            }
+            style={styles.addReviewButton}
+          >
+            <Ionicons name="pencil" size={20} color="#FFA500" />
+            <Text style={styles.addReviewText}>
+              {userReview ? "Editar tu reseña" : "Escribe una reseña"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {reviews.length > 0 ? (
+          <>
+            {reviews.slice(0, 3).map(renderReview)}
+            {reviews.length > 3 && (
+              <TouchableOpacity
+                onPress={() => router.push(`/bars/${id}/reviews`)}
+                style={styles.seeAllButton}
+              >
+                <Text style={styles.seeAllText}>
+                  Ver todas las reseñas ({reviews.length})
+                </Text>
+              </TouchableOpacity>
+            )}
+          </>
+        ) : (
+          <Text style={styles.noReviews}>
+            Sé el primero en dejar una reseña
+          </Text>
+        )}
+      </View>
+
+      <Modal
+        visible={showReviewModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowReviewModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              {userReview ? "Editar Reseña" : "Nueva Reseña"}
+            </Text>
+
+            {renderStars(rating)}
+
+            <TextInput
+              style={styles.reviewInput}
+              multiline
+              numberOfLines={4}
+              placeholder="Escribe tu reseña aquí..."
+              placeholderTextColor="#666"
+              value={reviewText}
+              onChangeText={setReviewText}
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setShowReviewModal(false)}
+              >
+                <Text style={styles.buttonText}>Cancelar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.submitButton]}
+                onPress={handleSubmitReview}
+              >
+                <Text style={styles.buttonText}>
+                  {userReview ? "Actualizar" : "Publicar"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
-
-// esto es por q el grid se movio todo, ln le dije al v0 que lo arreglara y puso esto
-const { width } = Dimensions.get("window");
-const itemWidth = (width - 32) / 2;
 
 const styles = StyleSheet.create({
   container: {
@@ -284,7 +495,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
-    height: 220, // Fixed height for consistency
+    height: 220,
   },
   menuImagePlaceholder: {
     backgroundColor: "#2A2A2A",
@@ -305,12 +516,145 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#999",
     marginBottom: 8,
-    height: 32, // Fixed height for 2 lines
+    height: 32,
   },
   menuItemPrice: {
     fontSize: 16,
     fontWeight: "bold",
     color: "#FFA500",
+  },
+  section: {
+    padding: 16,
+    marginVertical: 8,
+    backgroundColor: "#1E1E1E",
+    borderRadius: 12,
+    marginHorizontal: 16,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "white",
+  },
+  addReviewButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    padding: 8,
+  },
+  addReviewText: {
+    color: "#FFA500",
+    fontWeight: "bold",
+  },
+  reviewCard: {
+    backgroundColor: "#2A2A2A",
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 12,
+  },
+  reviewHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  reviewAuthor: {
+    color: "white",
+    fontWeight: "bold",
+  },
+  reviewRating: {
+    flexDirection: "row",
+    marginLeft: "auto",
+  },
+  reviewText: {
+    color: "#CCC",
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  reviewActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 16,
+    marginTop: 12,
+  },
+  actionText: {
+    color: "#FFA500",
+    fontWeight: "bold",
+  },
+  deleteText: {
+    color: "#FF3B30",
+  },
+  noReviews: {
+    color: "#666",
+    textAlign: "center",
+    padding: 16,
+  },
+  seeAllButton: {
+    marginTop: 12,
+    padding: 8,
+  },
+  seeAllText: {
+    color: "#FFA500",
+    textAlign: "center",
+    fontWeight: "bold",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    padding: 16,
+  },
+  modalContent: {
+    backgroundColor: "#1E1E1E",
+    borderRadius: 12,
+    padding: 20,
+  },
+  modalTitle: {
+    color: "white",
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  starsContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+    marginVertical: 16,
+  },
+  reviewInput: {
+    backgroundColor: "#2A2A2A",
+    color: "white",
+    borderRadius: 8,
+    padding: 16,
+    minHeight: 100,
+    textAlignVertical: "top",
+    marginBottom: 16,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 12,
+  },
+  modalButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  cancelButton: {
+    backgroundColor: "#333",
+  },
+  submitButton: {
+    backgroundColor: "#FFA500",
+  },
+  buttonText: {
+    color: "white",
+    fontWeight: "bold",
   },
 });
 
