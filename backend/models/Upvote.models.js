@@ -1,21 +1,20 @@
+// Upvote.model.js (Para bares)
 const mongoose = require('mongoose');
 
 const UpvoteSchema = new mongoose.Schema({
-  user_id: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+  user: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'User', 
+    required: true 
   },
-  bar_id: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Bar',
-    required: true
+  bar: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Bar', 
+    required: true 
   }
-}, {
-  timestamps: true
-});
+}, { timestamps: true });
 
-// Nomas 1 voto por persona a un lugar
-UpvoteSchema.index({ user_id: 1, place_id: 1 }, { unique: true });
+// Evita upvotes duplicados
+UpvoteSchema.index({ user: 1, bar: 1 }, { unique: true });
 
 module.exports = mongoose.model('Upvote', UpvoteSchema);

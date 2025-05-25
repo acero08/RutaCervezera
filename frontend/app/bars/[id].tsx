@@ -25,7 +25,7 @@ const BarDetails = () => {
   const authApi = ApiService.getInstance();
   const { id } = useLocalSearchParams();
   const { user, token } = useAuth();
-  const [bar, setBar] = useState<any>(null);
+  const [bar, setBar] = useState<any>({});
   const [menu, setMenu] = useState<any[]>([]);
   const [foodItems, setFoodItems] = useState<any[]>([]);
   const [drinkItems, setDrinkItems] = useState<any[]>([]);
@@ -38,21 +38,28 @@ const BarDetails = () => {
   const [rating, setRating] = useState(5);
   const [userReview, setUserReview] = useState<any>(null);
   const router = useRouter();
+  const [selectedReview, setSelectedReview] = useState<any>(null);
+  const [commentText, setCommentText] = useState("");
+  const [showCommentsModal, setShowCommentsModal] = useState(false);
+  const [reviewsError, setReviewsError] = useState(false);
 
   const { width } = Dimensions.get("window");
   const itemWidth = (width - 32) / 2;
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!id) return;
+
+      setLoading(true);
+
       try {
-        const [barData, menuData, reviewsData] = await Promise.all([
+        // Cargar datos del bar y menú primero
+        const [barData, menuData] = await Promise.all([
           api.barDetails(id as string),
           api.barMenu(id as string),
-          authApi.getBarReviews(id as string),
         ]);
 
         setBar(barData);
-        setReviews(reviewsData.data || []);
 
         const food = menuData.data?.food || [];
         const drink = menuData.data?.drink || [];
@@ -63,14 +70,39 @@ const BarDetails = () => {
         setAlcoholItems(alcoholic);
         setDrinkItems(nonAlcoholic);
 
-        if (user) {
-          const userRev = reviewsData.data.find(
-            (r: any) => r.user._id === user.id || r.user._id === user._id
-          );
-          setUserReview(userRev);
+        // Intentar cargar reseñas por separado para manejar errores
+        try {
+          const reviewsData = await authApi.getBarReviews(id as string);
+
+          if (reviewsData.success && reviewsData.data) {
+            setReviews(reviewsData.data);
+            setReviewsError(false);
+
+            // Buscar reseña del usuario actual
+            if (user && reviewsData.data.length > 0) {
+              const userRev = reviewsData.data.find(
+                (r: any) => r.user?._id === user.id || r.user?._id === user._id
+              );
+              setUserReview(userRev || null);
+            }
+          } else {
+            setReviews([]);
+            setReviewsError(false);
+          }
+        } catch (reviewError: any) {
+          console.error("Error cargando reseñas:", reviewError);
+          setReviewsError(true);
+          setReviews([]);
+
+          // No mostrar alerta para errores de reseñas, solo logear
+          if (reviewError.response?.status !== 500) {
+            console.warn("Review loading failed, but continuing...");
+          }
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error cargando datos:", error);
+        Alert.alert("Error", "No se pudieron cargar los datos del bar");
+        setBar({});
       } finally {
         setLoading(false);
       }
@@ -84,6 +116,36 @@ const BarDetails = () => {
     // Lógica para guardar favoritos
   };
 
+  const handleViewComments = async (review: any) => {
+    if (!review || !review._id) {
+      Alert.alert("Error", "Reseña no válida");
+      return;
+    }
+
+    if (!token) {
+      Alert.alert("Error", "Debes iniciar sesión para ver comentarios");
+      return;
+    }
+
+    try {
+      const commentsResponse = await authApi.getComments(review._id);
+      setSelectedReview({
+        ...review,
+        comments: commentsResponse.data || [],
+      });
+      setShowCommentsModal(true);
+    } catch (error: any) {
+      console.error("Error fetching comments:", error);
+
+      let errorMessage = "No se pudieron cargar los comentarios";
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      }
+
+      Alert.alert("Error", errorMessage);
+    }
+  };
+
   const handleSubmitReview = async () => {
     if (!token) {
       Alert.alert("Error", "Debes iniciar sesión para dejar una reseña");
@@ -95,44 +157,115 @@ const BarDetails = () => {
       return;
     }
 
+    if (rating < 1 || rating > 5) {
+      Alert.alert("Error", "La calificación debe estar entre 1 y 5 estrellas");
+      return;
+    }
+
+    // Prevenir múltiples envíos
+    if (loading) return;
+    setLoading(true);
+
     try {
+      let response: any; // Tipado explícito para evitar el error
+
       if (userReview) {
-        const response = await authApi.editReview(
+        // Actualizar reseña existente
+        response = await authApi.editReview(
           userReview._id,
           token,
           rating,
-          reviewText
+          reviewText.trim()
         );
-        setReviews(
-          reviews.map((r) =>
+
+        // Actualizar la lista de reseñas
+        setReviews((prevReviews) =>
+          prevReviews.map((r) =>
             r._id === userReview._id ? response.data.review : r
           )
         );
         setUserReview(response.data.review);
+        Alert.alert("Éxito", "Reseña actualizada correctamente");
       } else {
-        const response = await authApi.createBarReview(
+        // Crear nueva reseña
+        response = await authApi.createBarReview(
           id as string,
           token,
           rating,
-          reviewText
+          reviewText.trim()
         );
-        setReviews([...reviews, response.data.review]);
+
+        // Añadir la nueva reseña a la lista
+        setReviews((prevReviews) => [response.data.review, ...prevReviews]);
         setUserReview(response.data.review);
+        Alert.alert("Éxito", "Reseña creada correctamente");
       }
 
+      // Limpiar y cerrar modal
       setShowReviewModal(false);
-      Alert.alert("Éxito", "Reseña guardada correctamente");
-    } catch (error) {
+      setReviewText("");
+      setRating(5);
+    } catch (error: any) {
       console.error("Error guardando reseña:", error);
-      Alert.alert("Error", "No se pudo guardar la reseña");
+
+      let errorMessage = "No se pudo guardar la reseña";
+
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      Alert.alert("Error", errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Función handleUpvote consolidada (eliminé la duplicada)
+  const handleUpvote = async (review: any) => {
+    if (!token) {
+      Alert.alert("Error", "Debes iniciar sesión para votar");
+      return;
+    }
+
+    if (!review || !review._id) {
+      Alert.alert("Error", "Reseña no válida");
+      return;
+    }
+
+    try {
+      const response = await authApi.upvoteReview(review._id, token);
+
+      // Actualizar el conteo de upvotes en la reseña específica
+      setReviews((prevReviews) =>
+        prevReviews.map((r) => {
+          if (r._id === review._id) {
+            return {
+              ...r,
+              upvotes: response.count || 0,
+            };
+          }
+          return r;
+        })
+      );
+    } catch (error: any) {
+      console.error("Error al votar:", error);
+
+      let errorMessage = "No se pudo procesar el voto";
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      }
+
+      Alert.alert("Error", errorMessage);
     }
   };
 
   const handleDeleteReview = async () => {
-    if (!userReview) return;
+    if (!userReview || !token) return;
 
     try {
-      await authApi.deleteReview(userReview._id, token!);
+      await authApi.deleteReview(userReview._id, token);
       setReviews(reviews.filter((r) => r._id !== userReview._id));
       setUserReview(null);
       setShowReviewModal(false);
@@ -163,44 +296,69 @@ const BarDetails = () => {
     );
   };
 
-  const renderReview = (review: any) => (
-    <View key={review._id} style={styles.reviewCard}>
-      <View style={styles.reviewHeader}>
-        <Ionicons name="person-circle" size={24} color="#FFA500" />
-        <Text style={styles.reviewAuthor}>{review.user.name}</Text>
-        <View style={styles.reviewRating}>
-          {[...Array(5)].map((_, i) => (
-            <Ionicons
-              key={i}
-              name={i < review.rating ? "star" : "star-outline"}
-              size={16}
-              color="#FFA500"
-            />
-          ))}
-        </View>
-      </View>
-      <Text style={styles.reviewText}>{review.comment}</Text>
-      {user &&
-        (user.id === review.user._id || user._id === review.user._id) && (
-          <View style={styles.reviewActions}>
-            <TouchableOpacity
-              onPress={() => {
-                setRating(review.rating);
-                setReviewText(review.comment);
-                setShowReviewModal(true);
-              }}
-            >
-              <Text style={styles.actionText}>Editar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleDeleteReview}>
-              <Text style={[styles.actionText, styles.deleteText]}>
-                Eliminar
-              </Text>
-            </TouchableOpacity>
+  const renderReview = (review: any) => {
+    if (!review) return null;
+
+    return (
+      <View key={review._id} style={styles.reviewCard}>
+        <View style={styles.reviewHeader}>
+          <Ionicons name="person-circle" size={24} color="#FFA500" />
+          <Text style={styles.reviewAuthor}>
+            {review.user?.name || "Usuario"}
+          </Text>
+          <View style={styles.reviewRating}>
+            {[...Array(5)].map((_, i) => (
+              <Ionicons
+                key={i}
+                name={i < (review.rating || 0) ? "star" : "star-outline"}
+                size={16}
+                color="#FFA500"
+              />
+            ))}
           </View>
-        )}
-    </View>
-  );
+        </View>
+        <Text style={styles.reviewText}>{review.comment || ""}</Text>
+
+        <View style={styles.interactionContainer}>
+          <TouchableOpacity
+            style={styles.upvoteButton}
+            onPress={() => handleUpvote(review)}
+          >
+            <Ionicons name="arrow-up" size={20} color="#FFA500" />
+            <Text style={styles.upvoteCount}>{review.upvotes || 0}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.commentButton}
+            onPress={() => handleViewComments(review)}
+          >
+            <Ionicons name="chatbubbles" size={18} color="#FFA500" />
+            <Text style={styles.commentCount}>{review.commentCount || 0}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {user &&
+          (user.id === review.user?._id || user._id === review.user?._id) && (
+            <View style={styles.reviewActions}>
+              <TouchableOpacity
+                onPress={() => {
+                  setRating(review.rating || 5);
+                  setReviewText(review.comment || "");
+                  setShowReviewModal(true);
+                }}
+              >
+                <Text style={styles.actionText}>Editar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleDeleteReview}>
+                <Text style={[styles.actionText, styles.deleteText]}>
+                  Eliminar
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+      </View>
+    );
+  };
 
   const renderMenuSection = (
     title: string,
@@ -280,11 +438,11 @@ const BarDetails = () => {
       <View style={styles.ratingContainer}>
         <View style={styles.ratingItem}>
           <Ionicons name="star" size={18} color="#FFA500" />
-          <Text style={styles.ratingText}>{bar.rating}</Text>
+          <Text style={styles.ratingText}>{bar?.rating || "0.0"}</Text>
         </View>
       </View>
 
-      <Text style={styles.barName}>{bar.name}</Text>
+      <Text style={styles.barName}>{bar?.name || "Nombre no disponible"}</Text>
 
       <Text style={styles.description}>
         {bar.description ||
@@ -297,7 +455,9 @@ const BarDetails = () => {
 
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Reseñas ({reviews.length})</Text>
+          <Text style={styles.sectionTitle}>
+            Reseñas {!reviewsError && `(${reviews.length})`}
+          </Text>
           <TouchableOpacity
             onPress={() =>
               user ? setShowReviewModal(true) : router.push("/userauth/Login")
@@ -311,7 +471,11 @@ const BarDetails = () => {
           </TouchableOpacity>
         </View>
 
-        {reviews.length > 0 ? (
+        {reviewsError ? (
+          <Text style={styles.errorText}>
+            No se pudieron cargar las reseñas. Inténtalo más tarde.
+          </Text>
+        ) : reviews.length > 0 ? (
           <>
             {reviews.slice(0, 3).map(renderReview)}
             {reviews.length > 3 && (
@@ -359,7 +523,11 @@ const BarDetails = () => {
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setShowReviewModal(false)}
+                onPress={() => {
+                  setShowReviewModal(false);
+                  setReviewText("");
+                  setRating(5);
+                }}
               >
                 <Text style={styles.buttonText}>Cancelar</Text>
               </TouchableOpacity>
@@ -376,6 +544,31 @@ const BarDetails = () => {
           </View>
         </View>
       </Modal>
+
+      <CommentsModal
+        visible={showCommentsModal}
+        onClose={() => {
+          setShowCommentsModal(false);
+          setSelectedReview(null);
+        }}
+        review={selectedReview}
+        onCommentSubmit={(comment) => {
+          if (selectedReview) {
+            setSelectedReview({
+              ...selectedReview,
+              comments: [
+                ...(selectedReview.comments || []),
+                {
+                  _id: Date.now().toString(),
+                  content: comment,
+                  user: user,
+                  createdAt: new Date().toISOString(),
+                },
+              ],
+            });
+          }
+        }}
+      />
     </ScrollView>
   );
 };
@@ -656,6 +849,200 @@ const styles = StyleSheet.create({
     color: "white",
     fontWeight: "bold",
   },
+  interactionContainer: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 20,
+    marginTop: 10,
+  },
+  upvoteButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  upvoteCount: {
+    color: "#FFA500",
+    fontWeight: "bold",
+  },
+  commentButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  commentCount: {
+    color: "#FFA500",
+    fontWeight: "bold",
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "#121212",
+    padding: 16,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  commentsList: {
+    flex: 1,
+  },
+  commentItem: {
+    backgroundColor: "#2A2A2A",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  commentAuthor: {
+    color: "#FFA500",
+    fontWeight: "bold",
+    marginBottom: 4,
+  },
+  commentText: {
+    color: "#FFF",
+  },
+  commentInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 16,
+  },
+  commentInput: {
+    flex: 1,
+    backgroundColor: "#2A2A2A",
+    color: "#FFF",
+    borderRadius: 20,
+    padding: 12,
+  },
+  errorText: {
+    color: "#FF6B6B",
+    fontSize: 14,
+    textAlign: "center",
+    padding: 16,
+  },
 });
 
 export default BarDetails;
+
+const CommentsModal = ({
+  visible,
+  onClose,
+  review,
+  onCommentSubmit,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  review: any;
+  onCommentSubmit: (comment: string) => void;
+}) => {
+  const [newComment, setNewComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const { user, token } = useAuth();
+
+  const handleSubmit = async () => {
+    if (!token) {
+      Alert.alert("Error", "Debes iniciar sesión para comentar");
+      return;
+    }
+
+    if (!newComment.trim()) {
+      Alert.alert("Error", "El comentario no puede estar vacío");
+      return;
+    }
+
+    if (submitting) return; // Prevenir envíos múltiples
+
+    setSubmitting(true);
+
+    try {
+      await ApiService.getInstance().postComment(
+        review?._id,
+        token,
+        newComment.trim()
+      );
+      onCommentSubmit(newComment.trim());
+      setNewComment("");
+    } catch (error: any) {
+      console.error("Error posting comment:", error);
+
+      let errorMessage = "No se pudo enviar el comentario";
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      }
+
+      Alert.alert("Error", errorMessage);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Protección contra review null/undefined
+  if (!visible || !review) {
+    return null;
+  }
+
+  return (
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Comentarios</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="close" size={24} color="#FFA500" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.commentsList}>
+            {review.comments && review.comments.length > 0 ? (
+              review.comments.map((comment: any) => (
+                <View
+                  key={comment._id || comment.id || Math.random()}
+                  style={styles.commentItem}
+                >
+                  <Text style={styles.commentAuthor}>
+                    {comment.user?.name || "Usuario"}
+                  </Text>
+                  <Text style={styles.commentText}>
+                    {comment.content || comment.text || ""}
+                  </Text>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.noReviews}>No hay comentarios aún</Text>
+            )}
+          </ScrollView>
+
+          {user && (
+            <View style={styles.commentInputContainer}>
+              <TextInput
+                style={styles.commentInput}
+                placeholder="Escribe un comentario..."
+                placeholderTextColor="#666"
+                value={newComment}
+                onChangeText={setNewComment}
+                multiline
+                maxLength={500}
+                editable={!submitting}
+              />
+              <TouchableOpacity
+                onPress={handleSubmit}
+                disabled={!newComment.trim() || submitting}
+              >
+                <Ionicons
+                  name="send"
+                  size={24}
+                  color={newComment.trim() && !submitting ? "#FFA500" : "#666"}
+                />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+};

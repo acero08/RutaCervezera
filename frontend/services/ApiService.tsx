@@ -15,20 +15,7 @@ export default class ApiService {
     return ApiService.instance;
   }
 
-  public async login(email: string, password: string): Promise<any> {
-    try {
-      const { data }: AxiosResponse = await axios.post(`${this.api}/login`, {
-        email,
-        password,
-      });
-      return data;
-    } catch (error) {
-      HandleLoginError(error);
-      throw error;
-    }
-  }
-
-  // Fixed review methods with proper error handling
+  // Métodos de reviews corregidos
   async createBarReview(
     barId: string,
     token: string,
@@ -36,14 +23,48 @@ export default class ApiService {
     comment: string
   ) {
     try {
-      const response = await axios.post(`${this.api}/bars/${barId}/reviews`, {
-        token,
+      console.log("Creating review with data:", {
+        barId,
         rating,
         comment,
+        hasToken: !!token,
       });
+
+      const response = await axios.post(
+        `${this.api}/bars/${barId}/reviews`,
+        {
+          token,
+          rating,
+          comment,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            // Si tu API requiere Authorization header en lugar de token en el body:
+            // 'Authorization': `Bearer ${token}`
+          },
+          timeout: 10000, // 10 segundos de timeout
+        }
+      );
+
+      console.log("Review created successfully:", response.data);
       return response.data;
     } catch (error: any) {
       console.error("Error creating review:", error);
+
+      // Más detalles del error
+      if (error.response) {
+        console.error("Error response:", {
+          status: error.response.status,
+          data: error.response.data,
+          headers: error.response.headers,
+        });
+      } else if (error.request) {
+        console.error("Error request:", error.request);
+      } else {
+        console.error("Error message:", error.message);
+      }
+
       throw error;
     }
   }
@@ -55,36 +76,196 @@ export default class ApiService {
     comment: string
   ) {
     try {
-      const response = await axios.put(`${this.api}/reviews/${reviewId}`, {
-        token,
+      console.log("Editing review with data:", {
+        reviewId,
         rating,
         comment,
+        hasToken: !!token,
       });
+
+      const response = await axios.put(
+        `${this.api}/reviews/${reviewId}`,
+        {
+          token,
+          rating,
+          comment,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          timeout: 10000,
+        }
+      );
+
+      console.log("Review edited successfully:", response.data);
       return response.data;
     } catch (error: any) {
       console.error("Error editing review:", error);
+
+      if (error.response) {
+        console.error("Error response:", {
+          status: error.response.status,
+          data: error.response.data,
+        });
+      }
+
       throw error;
     }
   }
 
   async deleteReview(reviewId: string, token: string) {
     try {
+      console.log("Deleting review:", { reviewId, hasToken: !!token });
+
       const response = await axios.delete(`${this.api}/reviews/${reviewId}`, {
         data: { token },
+        headers: {
+          "Content-Type": "application/json",
+        },
+        timeout: 10000,
       });
+
+      console.log("Review deleted successfully:", response.data);
       return response.data;
     } catch (error: any) {
       console.error("Error deleting review:", error);
+
+      if (error.response) {
+        console.error("Error response:", {
+          status: error.response.status,
+          data: error.response.data,
+        });
+      }
+
       throw error;
     }
   }
 
   async getBarReviews(barId: string) {
     try {
-      const response = await axios.get(`${this.api}/bars/${barId}/reviews`);
+      console.log("Fetching reviews for bar:", barId);
+
+      const response = await axios.get(`${this.api}/bars/${barId}/reviews`, {
+        timeout: 10000,
+      });
+
+      console.log("Reviews fetched successfully:", response.data);
       return response.data;
     } catch (error: any) {
       console.error("Error fetching reviews:", error);
+
+      if (error.response) {
+        console.error("Error response:", {
+          status: error.response.status,
+          data: error.response.data,
+        });
+      }
+
+      throw error;
+    }
+  }
+
+  // Métodos de comentarios corregidos
+  async upvoteReview(reviewId: string, token: string) {
+    try {
+      console.log("Upvoting review:", { reviewId, hasToken: !!token });
+
+      const response = await axios.post(
+        `${this.api}/reviews/${reviewId}/upvotes`,
+        { token },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          timeout: 10000,
+        }
+      );
+
+      console.log("Review upvoted successfully:", response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error upvoting review:", error);
+
+      if (error.response) {
+        console.error("Error response:", {
+          status: error.response.status,
+          data: error.response.data,
+        });
+      }
+
+      throw error;
+    }
+  }
+
+  async getComments(reviewId: string) {
+    try {
+      console.log("Fetching comments for review:", reviewId);
+
+      const response = await axios.get(
+        `${this.api}/reviews/${reviewId}/comments`,
+        {
+          timeout: 10000,
+        }
+      );
+
+      console.log("Comments fetched successfully:", response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error fetching comments:", error);
+
+      if (error.response) {
+        console.error("Error response:", {
+          status: error.response.status,
+          data: error.response.data,
+        });
+      }
+
+      throw error;
+    }
+  }
+
+  async postComment(reviewId: string, token: string, comment: string) {
+    try {
+      console.log("Posting comment:", { reviewId, comment, hasToken: !!token });
+
+      const response = await axios.post(
+        `${this.api}/reviews/${reviewId}/comments`,
+        { token, comment },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          timeout: 10000,
+        }
+      );
+
+      console.log("Comment posted successfully:", response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error posting comment:", error);
+
+      if (error.response) {
+        console.error("Error response:", {
+          status: error.response.status,
+          data: error.response.data,
+        });
+      }
+
+      throw error;
+    }
+  }
+
+  // Otros métodos existentes...
+  public async login(email: string, password: string): Promise<any> {
+    try {
+      const { data }: AxiosResponse = await axios.post(`${this.api}/login`, {
+        email,
+        password,
+      });
+      return data;
+    } catch (error) {
+      HandleLoginError(error);
       throw error;
     }
   }
@@ -127,7 +308,6 @@ export default class ApiService {
     }
   }
 
-  // Fixed updateUser method with proper web support
   async updateUser(
     token: string,
     userData: any,

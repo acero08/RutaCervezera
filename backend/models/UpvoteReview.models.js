@@ -1,10 +1,20 @@
+// UpvoteReview.model.js (Para reseñas)
 const mongoose = require('mongoose');
 
 const UpvoteReviewSchema = new mongoose.Schema({
-    user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    review_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Review', required: true }
-  });
-  
-  const UpvoteReview = mongoose.model('UpvoteReview', UpvoteReviewSchema);
-  module.exports = UpvoteReview;
-  
+  user: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'User', 
+    required: true 
+  },
+  review: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Review', 
+    required: true 
+  }
+}, { timestamps: true });
+
+// Evita upvotes duplicados
+UpvoteReviewSchema.index({ user: 1, review: 1 }, { unique: true });
+
+module.exports = mongoose.model('UpvoteReview', UpvoteReviewSchema);

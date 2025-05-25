@@ -1,27 +1,33 @@
+// Review.model.js
 const mongoose = require('mongoose');
 
-const ReviewSchema = mongoose.Schema({
+const ReviewSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "UserDetail",  
+    ref: "User",  // Cambiado de UserDetail a User
     required: true
   },
   bar: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Bar", 
+    ref: "Bar",
     required: true
   },
   rating: {
     type: Number,
     required: true,
     min: 1,
-    max: 5
+    max: 5,
+    validate: {
+      validator: Number.isInteger,
+      message: '{VALUE} no es un valor entero'
+    }
   },
   comment: {
     type: String,
-    required: true
+    required: true,
+    trim: true,
+    maxlength: 500
   }
 }, { timestamps: true });
 
-const Review = mongoose.model('Review', ReviewSchema);
-module.exports = Review;
+module.exports = mongoose.model('Review', ReviewSchema);
