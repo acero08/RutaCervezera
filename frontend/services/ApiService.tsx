@@ -28,6 +28,67 @@ export default class ApiService {
     }
   }
 
+  // Fixed review methods with proper error handling
+  async createBarReview(
+    barId: string,
+    token: string,
+    rating: number,
+    comment: string
+  ) {
+    try {
+      const response = await axios.post(`${this.api}/bars/${barId}/reviews`, {
+        token,
+        rating,
+        comment,
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error creating review:", error);
+      throw error;
+    }
+  }
+
+  async editReview(
+    reviewId: string,
+    token: string,
+    rating: number,
+    comment: string
+  ) {
+    try {
+      const response = await axios.put(`${this.api}/reviews/${reviewId}`, {
+        token,
+        rating,
+        comment,
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error editing review:", error);
+      throw error;
+    }
+  }
+
+  async deleteReview(reviewId: string, token: string) {
+    try {
+      const response = await axios.delete(`${this.api}/reviews/${reviewId}`, {
+        data: { token },
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error("Error deleting review:", error);
+      throw error;
+    }
+  }
+
+  async getBarReviews(barId: string) {
+    try {
+      const response = await axios.get(`${this.api}/bars/${barId}/reviews`);
+      return response.data;
+    } catch (error: any) {
+      console.error("Error fetching reviews:", error);
+      throw error;
+    }
+  }
+
   async register(
     name: string,
     email: string,

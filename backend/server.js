@@ -1211,6 +1211,223 @@ app.delete("/api/reviews/:id", async (req, res) => {
 });
 
 
+// Fixed server routes for reviews
+
+// GET reviews for a specific bar
+app.get("/api/bars/:barId/reviews", async (req, res) => {
+  const { barId } = req.params;
+
+  try {
+    const reviews = await Review.find({ bar: barId })
+      .populate('user', 'name email image')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({ 
+      success: true,
+      data: reviews 
+    });
+  } catch (error) {
+    console.error("Error fetching reviews:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Error fetching reviews", 
+      error: error.message 
+    });
+  }
+});
+
+// POST - Create a new review
+app.post("/api/bars/:barId/reviews", async (req, res) => {
+  const { token, rating, comment } = req.body;
+  const { barId } = req.params;
+
+  try {
+    // Verify token
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await User.findById(decoded.userId);
+
+    if (!user) {
+      return res.status(404).json({ 
+        success: false,
+        message: "User not found" 
+      });
+    }
+
+    // Check if user already has a review for this bar
+    const existingReview = await Review.findOne({ 
+      user: user._id, 
+      bar: barId 
+    });
+
+    if (existingReview) {
+      return res.status(400).json({ 
+        success: false,
+        message: "You have already reviewed this bar" 
+      });
+    }
+
+    // Create review
+    const newReview = new Review({
+      user: user._id,
+      bar: barId,
+      rating: parseInt(rating),
+      comment: comment.trim(),
+    });
+
+    await newReview.save();
+
+    // Populate the user data for the response
+    await newReview.populate('user', 'name email image');
+
+    res.status(201).json({ 
+      success: true,
+      message: "Review created successfully", 
+      data: {
+        review: newReview
+      }
+    });
+  } catch (error) {
+    console.error("Error creating review:", error);
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ 
+        success: false,
+        message: "Invalid token" 
+      });
+    }
+    res.status(500).json({ 
+      success: false,
+      message: "Error creating review", 
+      error: error.message 
+    });
+  }
+});
+
+// PUT - Update an existing review
+app.put("/api/reviews/:reviewId", async (req, res) => {
+  const { token, rating, comment } = req.body;
+  const { reviewId } = req.params;
+
+  try {
+    // Verify token
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await User.findById(decoded.userId);
+
+    if (!user) {
+      return res.status(404).json({ 
+        success: false,
+        message: "User not found" 
+      });
+    }
+
+    // Find review
+    const review = await Review.findById(reviewId);
+
+    if (!review) {
+      return res.status(404).json({ 
+        success: false,
+        message: "Review not found" 
+      });
+    }
+
+    // Ensure the user owns the review
+    if (review.user.toString() !== user._id.toString()) {
+      return res.status(403).json({ 
+        success: false,
+        message: "You are not authorized to edit this review" 
+      });
+    }
+
+    // Update review
+    if (rating !== undefined) review.rating = parseInt(rating);
+    if (comment !== undefined) review.comment = comment.trim();
+
+    await review.save();
+    
+    // Populate the user data for the response
+    await review.populate('user', 'name email image');
+
+    res.status(200).json({ 
+      success: true,
+      message: "Review updated successfully", 
+      data: {
+        review
+      }
+    });
+  } catch (error) {
+    console.error("Error updating review:", error);
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ 
+        success: false,
+        message: "Invalid token" 
+      });
+    }
+    res.status(500).json({ 
+      success: false,
+      message: "Error updating review", 
+      error: error.message 
+    });
+  }
+});
+
+// DELETE - Delete a review
+app.delete("/api/reviews/:reviewId", async (req, res) => {
+  const { token } = req.body;
+  const { reviewId } = req.params;
+
+  try {
+    // Verify token
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await User.findById(decoded.userId);
+
+    if (!user) {
+      return res.status(404).json({ 
+        success: false,
+        message: "User not found" 
+      });
+    }
+
+    // Find review
+    const review = await Review.findById(reviewId);
+
+    if (!review) {
+      return res.status(404).json({ 
+        success: false,
+        message: "Review not found" 
+      });
+    }
+
+    // Ensure the user owns the review
+    if (review.user.toString() !== user._id.toString()) {
+      return res.status(403).json({ 
+        success: false,
+        message: "You are not authorized to delete this review" 
+      });
+    }
+
+    // Use deleteOne instead of delete (deprecated)
+    await Review.deleteOne({ _id: reviewId });
+
+    res.status(200).json({ 
+      success: true,
+      message: "Review deleted successfully" 
+    });
+  } catch (error) {
+    console.error("Error deleting review:", error);
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ 
+        success: false,
+        message: "Invalid token" 
+      });
+    }
+    res.status(500).json({ 
+      success: false,
+      message: "Error deleting review", 
+      error: error.message 
+    });
+  }
+});
+
+
 ////********************************************////
 
                 //COMMENTARIOS Y UPVOTES EN REVIEWS

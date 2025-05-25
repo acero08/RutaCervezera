@@ -1,22 +1,30 @@
-"use client"
+"use client";
 
-import { View, Text, ScrollView, ActivityIndicator, StyleSheet, TouchableOpacity, Dimensions } from "react-native"
+import {
+  View,
+  Text,
+  ScrollView,
+  ActivityIndicator,
+  StyleSheet,
+  TouchableOpacity,
+  Dimensions,
+} from "react-native";
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react"
-import { useLocalSearchParams } from "expo-router"
-import BarService from "../../services/BarService"
-import { Ionicons } from "@expo/vector-icons"
+import { useEffect, useState } from "react";
+import { useLocalSearchParams } from "expo-router";
+import BarService from "../../services/BarService";
+import { Ionicons } from "@expo/vector-icons";
 
 const BarDetails = () => {
-  const api = BarService.getInstance()
-  const { id } = useLocalSearchParams()
-  const [bar, setBar] = useState<any>(null)
-  const [menu, setMenu] = useState<any[]>([])
-  const [foodItems, setFoodItems] = useState<any[]>([])
-  const [drinkItems, setDrinkItems] = useState<any[]>([])
-  const [alcoholItems, setAlcoholItems] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [isFavorite, setIsFavorite] = useState(false) 
+  const api = BarService.getInstance();
+  const { id } = useLocalSearchParams();
+  const [bar, setBar] = useState<any>(null);
+  const [menu, setMenu] = useState<any[]>([]);
+  const [foodItems, setFoodItems] = useState<any[]>([]);
+  const [drinkItems, setDrinkItems] = useState<any[]>([]);
+  const [alcoholItems, setAlcoholItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isFavorite, setIsFavorite] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -25,75 +33,79 @@ const BarDetails = () => {
         const [barData, menuData] = await Promise.all([
           api.barDetails(id as string),
           api.barMenu(id as string),
-        ])
+        ]);
 
-        setBar(barData)
-        const food = menuData.data?.food || []
-        const drink = menuData.data?.drink || []
-        const alcoholic = drink.filter((item: any) => item.isAlcoholic)
-        const nonAlcoholic = drink.filter((item: any) => !item.isAlcoholic)
+        setBar(barData);
+        const food = menuData.data?.food || [];
+        const drink = menuData.data?.drink || [];
+        const alcoholic = drink.filter((item: any) => item.isAlcoholic);
+        const nonAlcoholic = drink.filter((item: any) => !item.isAlcoholic);
 
-        setFoodItems(food)
-        setAlcoholItems(alcoholic)
-        setDrinkItems(nonAlcoholic)
-        setMenu([...food, ...drink])
+        setFoodItems(food);
+        setAlcoholItems(alcoholic);
+        setDrinkItems(nonAlcoholic);
+        setMenu([...food, ...drink]);
       } catch (error) {
-        console.error("Error al cargar detalles del bar:", error)
+        console.error("Error al cargar detalles del bar:", error);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    fetchBarDetails()
-  }, [id])
+    fetchBarDetails();
+  }, [id]);
 
   const toggleFavorite = () => {
-    setIsFavorite(!isFavorite)
+    setIsFavorite(!isFavorite);
     // Aquí implementarías la lógica para guardar favoritos en tu API
-  }
+  };
 
   if (loading)
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#FFA500" />
       </View>
-    )
+    );
 
   // aqui se muestra la info del menu separado por categorias
   const renderMenuSection = (
     title: string,
     items: any[],
     iconName: React.ComponentProps<typeof Ionicons>["name"]
-    ) => {
-      if (!items || items.length === 0) return null;
-        
-      return (
-        <View style={styles.menuSection}>
-          <Text style={styles.menuTitle}>{title} ({items.length})</Text>
-          <View style={styles.menuGrid}>
-            {items.map((item, index) => (
-              <TouchableOpacity 
-                key={`${title}-${index}`}
-                style={styles.menuItemWrapper} 
-                onPress={() => router.push(`/bars/drink/${item._id}`)}
-              >
+  ) => {
+    if (!items || items.length === 0) return null;
+
+    return (
+      <View style={styles.menuSection}>
+        <Text style={styles.menuTitle}>
+          {title} ({items.length})
+        </Text>
+        <View style={styles.menuGrid}>
+          {items.map((item, index) => (
+            <TouchableOpacity
+              key={`${title}-${index}`}
+              style={styles.menuItemWrapper}
+              onPress={() => router.push(`/bars/drink/${item._id}`)}
+            >
               <View style={styles.menuItem}>
                 <View style={styles.menuImagePlaceholder}>
                   <Ionicons name={iconName} size={40} color="#FFA500" />
                 </View>
                 <View style={styles.menuContent}>
-                  <Text style={styles.menuItemName} numberOfLines={1}>{item.name}</Text>
+                  <Text style={styles.menuItemName} numberOfLines={1}>
+                    {item.name}
+                  </Text>
                   <Text style={styles.menuItemDescription} numberOfLines={2}>
                     {item.description || "Producto del bar"}
                   </Text>
                   <Text style={styles.menuItemPrice}>${item.price}</Text>
                 </View>
               </View>
-              </TouchableOpacity>
-            ))}
-          </View>
+            </TouchableOpacity>
+          ))}
         </View>
-          );
+      </View>
+    );
   };
 
   return (
@@ -108,13 +120,23 @@ const BarDetails = () => {
         </View>
 
         {/* irte pa atras */}
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
           <Ionicons name="chevron-back" size={24} color="white" />
         </TouchableOpacity>
 
         {/* favoritos */}
-        <TouchableOpacity style={styles.favoriteButton} onPress={toggleFavorite}>
-          <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={24} color={isFavorite ? "#FFA500" : "white"} />
+        <TouchableOpacity
+          style={styles.favoriteButton}
+          onPress={toggleFavorite}
+        >
+          <Ionicons
+            name={isFavorite ? "heart" : "heart-outline"}
+            size={24}
+            color={isFavorite ? "#FFA500" : "white"}
+          />
         </TouchableOpacity>
       </View>
 
@@ -131,21 +153,21 @@ const BarDetails = () => {
 
       {/* Descripción */}
       <Text style={styles.description}>
-        {bar.description || `${bar.name} son unos aburridos y no quisieron poner una descripción. ¿Su bebida será igual de aburrida?`}
+        {bar.description ||
+          `${bar.name} son unos aburridos y no quisieron poner una descripción. ¿Su bebida será igual de aburrida?`}
       </Text>
 
       {/* secciones del menu */}
       {renderMenuSection("Comida", foodItems, "restaurant")}
       {renderMenuSection("Bebidas Alcohólicas", alcoholItems, "wine")}
       {renderMenuSection("Bebidas", drinkItems, "cafe")}
-
     </ScrollView>
-  )
-}
+  );
+};
 
 // esto es por q el grid se movio todo, ln le dije al v0 que lo arreglara y puso esto
-const { width } = Dimensions.get('window');
-const itemWidth = (width - 32) / 2; 
+const { width } = Dimensions.get("window");
+const itemWidth = (width - 32) / 2;
 
 const styles = StyleSheet.create({
   container: {
@@ -290,6 +312,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#FFA500",
   },
-})
+});
 
-export default BarDetails
+export default BarDetails;
