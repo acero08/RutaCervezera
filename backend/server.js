@@ -1089,13 +1089,22 @@ app.delete("/api/menu/:itemId", async (req, res) => {
 
 
 // GET reviews for a specific bar
+// GET reviews for a specific bar
 app.get("/api/bars/:barId/reviews", async (req, res) => {
   try {
     console.log("Fetching reviews for bar:", req.params.barId);
 
+    // Validate barId format (assuming MongoDB ObjectId)
+    if (!req.params.barId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Invalid bar ID format" 
+      });
+    }
+
     const reviews = await Review.find({ bar: req.params.barId })
       .populate('user', 'name email image')
-      .sort({ createdAt: -1 }); // Ordenar solo por fecha
+      .sort({ createdAt: -1 });
 
     console.log(`Found ${reviews.length} reviews`);
 
@@ -1130,7 +1139,9 @@ app.get("/api/bars/:barId/reviews", async (req, res) => {
   }
 });
 
-// POST - Create a new review
+
+
+// POST - Create a new review - FIXED
 app.post("/api/bars/:barId/reviews", async (req, res) => {
   try {
     const { token, rating, comment } = req.body;
@@ -1142,6 +1153,14 @@ app.post("/api/bars/:barId/reviews", async (req, res) => {
       comment: comment?.substring(0, 50) + "...",
       hasToken: !!token 
     });
+
+    // Validate barId format
+    if (!barId || !barId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Invalid bar ID format" 
+      });
+    }
 
     // Validaciones básicas
     if (!token) {
@@ -1158,32 +1177,48 @@ app.post("/api/bars/:barId/reviews", async (req, res) => {
       });
     }
 
-    if (rating < 1 || rating > 5) {
+    const numRating = parseInt(rating);
+    if (isNaN(numRating) || numRating < 1 || numRating > 5) {
       return res.status(400).json({ 
         success: false,
-        message: "Rating must be between 1 and 5" 
+        message: "Rating must be a number between 1 and 5" 
       });
     }
 
-    if (comment.trim().length === 0) {
+    if (typeof comment !== 'string' || comment.trim().length === 0) {
       return res.status(400).json({ 
         success: false,
-        message: "Comment cannot be empty" 
+        message: "Comment must be a non-empty string" 
       });
     }
 
     // Verify token
     let decoded;
     try {
-      decoded = jwt.verify(token, JWT_SECRET);
+      // Make sure JWT_SECRET is defined
+      if (!process.env.JWT_SECRET && !JWT_SECRET) {
+        throw new Error('JWT_SECRET not configured');
+      }
+      
+      const secret = process.env.JWT_SECRET || JWT_SECRET;
+      decoded = jwt.verify(token, secret);
     } catch (jwtError) {
       console.error("JWT verification failed:", jwtError);
       return res.status(401).json({ 
         success: false,
-        message: "Invalid token" 
+        message: "Invalid or expired token" 
       });
     }
 
+    // Validate decoded token structure
+    if (!decoded.userId) {
+      return res.status(401).json({ 
+        success: false,
+        message: "Invalid token structure" 
+      });
+    }
+
+    // Find user
     const user = await User.findById(decoded.userId);
     if (!user) {
       return res.status(404).json({ 
@@ -1208,7 +1243,7 @@ app.post("/api/bars/:barId/reviews", async (req, res) => {
     });
 
     if (existingReview) {
-      return res.status(400).json({ 
+      return res.status(409).json({ // Changed to 409 Conflict
         success: false,
         message: "You have already reviewed this bar. Use PUT to update your review." 
       });
@@ -1218,36 +1253,60 @@ app.post("/api/bars/:barId/reviews", async (req, res) => {
     const newReview = new Review({
       user: user._id,
       bar: barId,
-      rating: parseInt(rating),
+      rating: numRating,
       comment: comment.trim(),
     });
 
     await newReview.save();
+    console.log("Review saved with ID:", newReview._id);
 
     // Populate the user data for the response
     await newReview.populate('user', 'name email image');
 
     console.log("Review created successfully:", newReview._id);
 
+    // Return the review in the expected format
+    const reviewResponse = {
+      _id: newReview._id,
+      user: newReview.user,
+      bar: newReview.bar,
+      rating: newReview.rating,
+      comment: newReview.comment,
+      upvotes: 0,
+      commentCount: 0,
+      createdAt: newReview.createdAt,
+      updatedAt: newReview.updatedAt
+    };
+
     res.status(201).json({ 
       success: true,
       message: "Review created successfully", 
       data: {
-        review: {
-          _id: newReview._id,
-          user: newReview.user,
-          bar: newReview.bar,
-          rating: newReview.rating,
-          comment: newReview.comment,
-          upvotes: 0,
-          commentCount: 0,
-          createdAt: newReview.createdAt,
-          updatedAt: newReview.updatedAt
-        }
+        review: reviewResponse
       }
     });
+
   } catch (error) {
-    console.error("Error creating review:", error);
+    console.error("Error creating review - Full error:", error);
+    console.error("Error stack:", error.stack);
+    
+    // More specific error handling
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ 
+        success: false,
+        message: "Validation error", 
+        error: error.message 
+      });
+    }
+    
+    if (error.name === 'CastError') {
+      return res.status(400).json({ 
+        success: false,
+        message: "Invalid ID format", 
+        error: error.message 
+      });
+    }
+
     res.status(500).json({ 
       success: false,
       message: "Internal server error", 
@@ -1256,7 +1315,6 @@ app.post("/api/bars/:barId/reviews", async (req, res) => {
   }
 });
 
-
 // PUT - Update an existing review - CORREGIDO
 app.put("/api/reviews/:reviewId", async (req, res) => {
   try {
@@ -1264,6 +1322,14 @@ app.put("/api/reviews/:reviewId", async (req, res) => {
     const { reviewId } = req.params;
 
     console.log("Updating review:", reviewId);
+
+    // Validate reviewId format
+    if (!reviewId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Invalid review ID format" 
+      });
+    }
 
     // Validaciones básicas
     if (!token) {
@@ -1276,11 +1342,19 @@ app.put("/api/reviews/:reviewId", async (req, res) => {
     // Verify token
     let decoded;
     try {
-      decoded = jwt.verify(token, JWT_SECRET);
+      const secret = process.env.JWT_SECRET || JWT_SECRET;
+      decoded = jwt.verify(token, secret);
     } catch (jwtError) {
       return res.status(401).json({ 
         success: false,
-        message: "Invalid token" 
+        message: "Invalid or expired token" 
+      });
+    }
+
+    if (!decoded.userId) {
+      return res.status(401).json({ 
+        success: false,
+        message: "Invalid token structure" 
       });
     }
 
@@ -1310,10 +1384,24 @@ app.put("/api/reviews/:reviewId", async (req, res) => {
     }
 
     // Update review
-    if (rating !== undefined && rating >= 1 && rating <= 5) {
-      review.rating = parseInt(rating);
+    if (rating !== undefined) {
+      const numRating = parseInt(rating);
+      if (isNaN(numRating) || numRating < 1 || numRating > 5) {
+        return res.status(400).json({ 
+          success: false,
+          message: "Rating must be a number between 1 and 5" 
+        });
+      }
+      review.rating = numRating;
     }
-    if (comment !== undefined && comment.trim().length > 0) {
+    
+    if (comment !== undefined) {
+      if (typeof comment !== 'string' || comment.trim().length === 0) {
+        return res.status(400).json({ 
+          success: false,
+          message: "Comment must be a non-empty string" 
+        });
+      }
       review.comment = comment.trim();
     }
 
@@ -1355,12 +1443,22 @@ app.put("/api/reviews/:reviewId", async (req, res) => {
   }
 });
 
+// DELETE - Delete a review
+
 app.delete("/api/reviews/:reviewId", async (req, res) => {
   try {
     const { token } = req.body;
     const { reviewId } = req.params;
 
     console.log("Deleting review:", reviewId);
+
+    // Validate reviewId format
+    if (!reviewId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Invalid review ID format" 
+      });
+    }
 
     if (!token) {
       return res.status(400).json({ 
@@ -1372,11 +1470,19 @@ app.delete("/api/reviews/:reviewId", async (req, res) => {
     // Verify token
     let decoded;
     try {
-      decoded = jwt.verify(token, JWT_SECRET);
+      const secret = process.env.JWT_SECRET || JWT_SECRET;
+      decoded = jwt.verify(token, secret);
     } catch (jwtError) {
       return res.status(401).json({ 
         success: false,
-        message: "Invalid token" 
+        message: "Invalid or expired token" 
+      });
+    }
+
+    if (!decoded.userId) {
+      return res.status(401).json({ 
+        success: false,
+        message: "Invalid token structure" 
       });
     }
 
@@ -1434,8 +1540,17 @@ app.delete("/api/reviews/:reviewId", async (req, res) => {
 
 app.post("/api/reviews/:reviewId/comments", async (req, res) => {
   try {
-    const { token, comment } = req.body; // Cambiar 'content' por 'comment'
-    
+    const { token, comment } = req.body;
+    const { reviewId } = req.params;
+
+    // Validate reviewId format
+    if (!reviewId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Invalid review ID format" 
+      });
+    }
+
     if (!token || !comment) {
       return res.status(400).json({ 
         success: false,
@@ -1443,13 +1558,29 @@ app.post("/api/reviews/:reviewId/comments", async (req, res) => {
       });
     }
 
+    if (typeof comment !== 'string' || comment.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Comment must be a non-empty string" 
+      });
+    }
+
+    // Verify token
     let decoded;
     try {
-      decoded = jwt.verify(token, JWT_SECRET);
+      const secret = process.env.JWT_SECRET || JWT_SECRET;
+      decoded = jwt.verify(token, secret);
     } catch (jwtError) {
       return res.status(401).json({ 
         success: false,
-        message: "Invalid token" 
+        message: "Invalid or expired token" 
+      });
+    }
+
+    if (!decoded.userId) {
+      return res.status(401).json({ 
+        success: false,
+        message: "Invalid token structure" 
       });
     }
 
@@ -1461,7 +1592,8 @@ app.post("/api/reviews/:reviewId/comments", async (req, res) => {
       });
     }
 
-    const review = await Review.findById(req.params.reviewId);
+    // Check if review exists
+    const review = await Review.findById(reviewId);
     if (!review) {
       return res.status(404).json({ 
         success: false,
@@ -1469,27 +1601,27 @@ app.post("/api/reviews/:reviewId/comments", async (req, res) => {
       });
     }
 
+    // Create comment
     const newComment = new Comment({
       user: user._id,
-      review: review._id,
-      content: comment.trim() // Asegurar que se guarde como 'content'
+      review: reviewId,
+      content: comment.trim()
     });
 
     await newComment.save();
-    
-    const commentWithUser = await Comment.findById(newComment._id)
-      .populate('user', 'name email image');
+    await newComment.populate('user', 'name email image');
 
-    res.status(201).json({
+    res.status(201).json({ 
       success: true,
-      data: commentWithUser
+      message: "Comment created successfully", 
+      data: newComment 
     });
 
   } catch (error) {
     console.error("Error creating comment:", error);
     res.status(500).json({ 
       success: false,
-      message: "Internal server error",
+      message: "Internal server error", 
       error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
     });
   }
@@ -1497,38 +1629,44 @@ app.post("/api/reviews/:reviewId/comments", async (req, res) => {
 // Obtener comentarios con paginación
 app.get("/api/reviews/:reviewId/comments", async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
+    const { reviewId } = req.params;
 
-    const comments = await Comment.find({ review: req.params.reviewId })
+    // Validate reviewId format
+    if (!reviewId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Invalid review ID format" 
+      });
+    }
+
+    // Check if review exists
+    const review = await Review.findById(reviewId);
+    if (!review) {
+      return res.status(404).json({ 
+        success: false,
+        message: "Review not found" 
+      });
+    }
+
+    const comments = await Comment.find({ review: reviewId })
       .populate('user', 'name email image')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
+      .sort({ createdAt: -1 });
 
-    const total = await Comment.countDocuments({ review: req.params.reviewId });
-
-    res.json({
+    res.status(200).json({ 
       success: true,
-      data: comments,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit)
-      }
+      data: comments 
     });
 
   } catch (error) {
     console.error("Error fetching comments:", error);
     res.status(500).json({ 
       success: false,
-      message: "Internal server error",
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
+      message: "Error fetching comments", 
+      error: error.message 
     });
   }
 });
+
 ////********************************************////
 
                 //UPVOTES para reseñas (likes)
@@ -1537,7 +1675,18 @@ app.get("/api/reviews/:reviewId/comments", async (req, res) => {
 app.post("/api/reviews/:reviewId/upvotes", async (req, res) => {
   try {
     const { token } = req.body;
-    
+    const { reviewId } = req.params;
+
+    console.log("Upvoting review:", reviewId);
+
+    // Validate reviewId format
+    if (!reviewId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Invalid review ID format" 
+      });
+    }
+
     if (!token) {
       return res.status(400).json({ 
         success: false,
@@ -1545,13 +1694,22 @@ app.post("/api/reviews/:reviewId/upvotes", async (req, res) => {
       });
     }
 
+    // Verify token
     let decoded;
     try {
-      decoded = jwt.verify(token, JWT_SECRET);
+      const secret = process.env.JWT_SECRET || JWT_SECRET;
+      decoded = jwt.verify(token, secret);
     } catch (jwtError) {
       return res.status(401).json({ 
         success: false,
-        message: "Invalid token" 
+        message: "Invalid or expired token" 
+      });
+    }
+
+    if (!decoded.userId) {
+      return res.status(401).json({ 
+        success: false,
+        message: "Invalid token structure" 
       });
     }
 
@@ -1563,7 +1721,8 @@ app.post("/api/reviews/:reviewId/upvotes", async (req, res) => {
       });
     }
 
-    const review = await Review.findById(req.params.reviewId);
+    // Check if review exists
+    const review = await Review.findById(reviewId);
     if (!review) {
       return res.status(404).json({ 
         success: false,
@@ -1571,37 +1730,39 @@ app.post("/api/reviews/:reviewId/upvotes", async (req, res) => {
       });
     }
 
-    const existingUpvote = await UpvoteReview.findOne({
-      user: user._id,
-      review: review._id
+    // Check if user already upvoted
+    const existingUpvote = await UpvoteReview.findOne({ 
+      user: user._id, 
+      review: reviewId 
     });
 
-    let upvoted = false;
     if (existingUpvote) {
+      // Remove upvote (toggle)
       await UpvoteReview.deleteOne({ _id: existingUpvote._id });
-      upvoted = false;
     } else {
+      // Add upvote
       const newUpvote = new UpvoteReview({
         user: user._id,
-        review: review._id
+        review: reviewId
       });
       await newUpvote.save();
-      upvoted = true;
     }
 
-    const count = await UpvoteReview.countDocuments({ review: review._id });
+    // Get updated count
+    const upvoteCount = await UpvoteReview.countDocuments({ review: reviewId });
 
-    res.json({ 
+    res.status(200).json({ 
       success: true,
-      upvoted: upvoted, 
-      count: count 
+      upvotes: upvoteCount,
+      count: upvoteCount,
+      message: existingUpvote ? "Upvote removed" : "Upvote added"
     });
 
   } catch (error) {
     console.error("Error handling upvote:", error);
     res.status(500).json({ 
       success: false,
-      message: "Internal server error",
+      message: "Internal server error", 
       error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
     });
   }

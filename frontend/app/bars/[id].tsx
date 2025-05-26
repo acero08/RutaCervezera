@@ -70,37 +70,53 @@ const BarDetails = () => {
         setAlcoholItems(alcoholic);
         setDrinkItems(nonAlcoholic);
 
-        // Intentar cargar reseñas por separado para manejar errores
+        // Cargar reseñas por separado con mejor manejo de errores
         try {
           const reviewsData = await authApi.getBarReviews(id as string);
 
-          if (reviewsData.success && reviewsData.data) {
-            setReviews(reviewsData.data);
+          console.log("Reviews data received:", reviewsData);
+
+          if (reviewsData && reviewsData.success !== false) {
+            const reviewsList = reviewsData.data || [];
+            setReviews(reviewsList);
             setReviewsError(false);
 
             // Buscar reseña del usuario actual
-            if (user && reviewsData.data.length > 0) {
-              const userRev = reviewsData.data.find(
+            if (user && reviewsList.length > 0) {
+              const userRev = reviewsList.find(
                 (r: any) => r.user?._id === user.id || r.user?._id === user._id
               );
               setUserReview(userRev || null);
             }
           } else {
+            console.log("No reviews found or error in response");
             setReviews([]);
             setReviewsError(false);
           }
         } catch (reviewError: any) {
           console.error("Error cargando reseñas:", reviewError);
-          setReviewsError(true);
-          setReviews([]);
 
-          // No mostrar alerta para errores de reseñas, solo logear
-          if (reviewError.response?.status !== 500) {
-            console.warn("Review loading failed, but continuing...");
+          // Manejo más específico de errores
+          if (reviewError.response?.status === 404) {
+            // Bar sin reseñas - no es un error
+            setReviews([]);
+            setReviewsError(false);
+          } else if (reviewError.response?.status >= 500) {
+            // Error del servidor
+            setReviewsError(true);
+            setReviews([]);
+          } else if (reviewError.message?.includes("Network")) {
+            // Error de red
+            setReviewsError(true);
+            setReviews([]);
+          } else {
+            // Otros errores - mostrar como vacío pero no como error
+            setReviews([]);
+            setReviewsError(false);
           }
         }
       } catch (error: any) {
-        console.error("Error cargando datos:", error);
+        console.error("Error cargando datos del bar:", error);
         Alert.alert("Error", "No se pudieron cargar los datos del bar");
         setBar({});
       } finally {
@@ -129,16 +145,29 @@ const BarDetails = () => {
 
     try {
       const commentsResponse = await authApi.getComments(review._id);
+      console.log("Comments response:", commentsResponse);
+
+      const comments = commentsResponse?.data || [];
+
       setSelectedReview({
         ...review,
-        comments: commentsResponse.data || [],
+        comments: comments,
       });
       setShowCommentsModal(true);
     } catch (error: any) {
       console.error("Error fetching comments:", error);
 
       let errorMessage = "No se pudieron cargar los comentarios";
-      if (error.response?.data?.message) {
+
+      if (error.response?.status === 404) {
+        // No hay comentarios - no es un error
+        setSelectedReview({
+          ...review,
+          comments: [],
+        });
+        setShowCommentsModal(true);
+        return;
+      } else if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
       }
 
@@ -167,7 +196,7 @@ const BarDetails = () => {
     setLoading(true);
 
     try {
-      let response: any; // Tipado explícito para evitar el error
+      let response: any;
 
       if (userReview) {
         // Actualizar reseña existente
@@ -181,10 +210,10 @@ const BarDetails = () => {
         // Actualizar la lista de reseñas
         setReviews((prevReviews) =>
           prevReviews.map((r) =>
-            r._id === userReview._id ? response.data.review : r
+            r._id === userReview._id ? response.data?.review || response : r
           )
         );
-        setUserReview(response.data.review);
+        setUserReview(response.data?.review || response);
         Alert.alert("Éxito", "Reseña actualizada correctamente");
       } else {
         // Crear nueva reseña
@@ -195,9 +224,11 @@ const BarDetails = () => {
           reviewText.trim()
         );
 
+        const newReview = response.data?.review || response;
+
         // Añadir la nueva reseña a la lista
-        setReviews((prevReviews) => [response.data.review, ...prevReviews]);
-        setUserReview(response.data.review);
+        setReviews((prevReviews) => [newReview, ...prevReviews]);
+        setUserReview(newReview);
         Alert.alert("Éxito", "Reseña creada correctamente");
       }
 
@@ -210,10 +241,20 @@ const BarDetails = () => {
 
       let errorMessage = "No se pudo guardar la reseña";
 
-      if (error.response?.data?.message) {
+      // Manejo específico de mensajes de error
+      if (error.message) {
+        if (error.message.includes("timeout")) {
+          errorMessage =
+            "La conexión tardó demasiado. Intenta con una reseña más corta.";
+        } else if (error.message.includes("Network")) {
+          errorMessage = "Error de conexión. Verifica tu internet.";
+        } else if (error.message.includes("Server error")) {
+          errorMessage = "Error del servidor. Intenta más tarde.";
+        } else {
+          errorMessage = error.message;
+        }
+      } else if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
-      } else if (error.message) {
-        errorMessage = error.message;
       }
 
       Alert.alert("Error", errorMessage);
