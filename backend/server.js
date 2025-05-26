@@ -294,6 +294,18 @@ app.get('/api/users/:userId/favorites', async (req, res) => {
   }
 });
 
+app.get("/bars/:barId/events", async (req, res) => {
+  const { barId } = req.params;
+
+  try {
+    const events = await Event.find({ bar: barId }).populate("bar");
+    res.json(events);
+  } catch (error) {
+    console.error("Error al obtener eventos del bar:", error);
+    res.status(500).json({ error: "No se pudieron obtener los eventos del bar" });
+  }
+});
+
         //TODO LO DE LOGIN Y REGISTER //
 ////********************************************////
 

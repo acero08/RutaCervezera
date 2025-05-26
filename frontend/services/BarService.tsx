@@ -136,6 +136,17 @@ export default class ApiService {
         const { data }: AxiosResponse = await axios.post(`${this.api}/users/${userId}/favorites/${barId}`);
         return data;
      }
+
+     async getEventsByBar(barId: string): Promise<any[]> {
+        try {
+            const { data } = await axios.get(`${this.api}/bars/${barId}/events`)
+            return data
+        } catch (error) {
+            HandleLoginError(error)
+            throw error
+        }
+        }
+
 }
     // Jala los reviews pero aun no se bn como funciona el endpoint de esta madre
     // async barReviews(id: string): Promise<any> {

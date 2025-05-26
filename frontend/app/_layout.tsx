@@ -13,6 +13,8 @@ export default function RootLayout() {
         <Stack.Screen name="bars/drink/[drinkId]" options={{ headerShown: false }} />
         <Stack.Screen name="userauth/Login" options={{ headerShown: false }} /> {/* Le quite el header */}
         <Stack.Screen name="userauth/Register" options={{ headerShown: false }} /> {/* Le quite el header */}
+        <Stack.Screen name="userauth/EditProfile" options={{ headerShown: false }} />
+        <Stack.Screen name="events/[eventId]" options={{ headerShown: false }} />
       </Stack>
     </AuthProvider>
   );
