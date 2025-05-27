@@ -6,7 +6,7 @@ const swaggerUi = require("swagger-ui-express");
 const YAML = require("yamljs");
 const axios = require('axios');
 const bcrypt = require("bcryptjs")
-const jwt= require('jsonwebtoken')
+const jwt = require('jsonwebtoken')
 const multer = require("multer");
 const Events = require("./models/Events.models.js");
 const Review = require("./models/Review.models.js");
@@ -20,7 +20,7 @@ const BaseItem = require('./models/BaseItem.models.js');
 const FoodItem = require('./models/FoodItem.models.js');
 const DrinkItem = require('./models/DrinkItem.models.js');
 
-require('dotenv').config(); 
+require('dotenv').config();
 const YELP_API_KEY = process.env.YELP_API_KEY;
 
 const app = express();
@@ -49,15 +49,15 @@ const yelpHeaders = {
 };
 
 mongoose.connect("mongodb+srv://andreacero:A.acero2020@backenddb.0peewj7.mongodb.net/FoodReviewAPI?retryWrites=true&w=majority&appName=BackendDB")
-    .then(() => console.log("Connected to yay"))
-    .catch(error => console.error("Connection error:", error.message));
-    
+  .then(() => console.log("Connected to yay"))
+  .catch(error => console.error("Connection error:", error.message));
+
 
 // IMAGENES
 ////********************************************////
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, "uploads/"); 
+    cb(null, "uploads/");
   },
   filename: (req, file, cb) => {
     cb(null, Date.now() + "-" + file.originalname); // Nombre único para el archivo
@@ -75,14 +75,14 @@ if (!fs.existsSync(uploadsDir)) {
 
 ////********************************************////
 
-       //ADMIN//
+//ADMIN//
 ////********************************************////
 
 // Middleware para verificar permisos de admin/business
 const verifyAdminPermissions = async (req, res, next) => {
   try {
     const { token } = req.body;
-    
+
     if (!token) {
       return res.status(401).json({
         success: false,
@@ -92,7 +92,7 @@ const verifyAdminPermissions = async (req, res, next) => {
 
     const decoded = jwt.verify(token, JWT_SECRET);
     const user = await User.findById(decoded.userId);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -121,7 +121,7 @@ const verifyAdminPermissions = async (req, res, next) => {
 app.put("/api/promote-to-business", async (req, res) => {
   try {
     const { token, targetUserId } = req.body;
-    
+
     if (!token) {
       return res.status(400).json({
         success: false,
@@ -132,7 +132,7 @@ app.put("/api/promote-to-business", async (req, res) => {
     // Verificar que el usuario actual es admin
     const decoded = jwt.verify(token, JWT_SECRET);
     const adminUser = await User.findById(decoded.userId);
-    
+
     if (!adminUser || adminUser.accountType !== 'admin') {
       return res.status(403).json({
         success: false,
@@ -201,11 +201,11 @@ app.post("/api/create-bar", upload.array('images', 5), verifyAdminPermissions, a
     }
 
     // Verificar si ya existe un bar con el mismo nombre en la misma ciudad
-    const existingBar = await Bar.findOne({ 
+    const existingBar = await Bar.findOne({
       name: name.trim(),
       city: city.trim()
     });
-    
+
     if (existingBar) {
       return res.status(409).json({
         success: false,
@@ -261,7 +261,7 @@ app.post("/api/create-bar", upload.array('images', 5), verifyAdminPermissions, a
 app.get("/api/my-bars", async (req, res) => {
   try {
     const { token } = req.query;
-    
+
     if (!token) {
       return res.status(400).json({
         success: false,
@@ -271,7 +271,7 @@ app.get("/api/my-bars", async (req, res) => {
 
     const decoded = jwt.verify(token, JWT_SECRET);
     const user = await User.findById(decoded.userId).populate('managedBars');
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -299,7 +299,7 @@ app.put("/api/update-bar/:barId", upload.array('images', 5), async (req, res) =>
   try {
     const { token } = req.body;
     const { barId } = req.params;
-    
+
     if (!token) {
       return res.status(400).json({
         success: false,
@@ -309,7 +309,7 @@ app.put("/api/update-bar/:barId", upload.array('images', 5), async (req, res) =>
 
     const decoded = jwt.verify(token, JWT_SECRET);
     const user = await User.findById(decoded.userId);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -336,10 +336,10 @@ app.put("/api/update-bar/:barId", upload.array('images', 5), async (req, res) =>
 
     // Actualizar campos
     const updateFields = [
-      'name', 'description', 'address', 'city', 'phone', 
+      'name', 'description', 'address', 'city', 'phone',
       'email', 'website', 'priceRange', 'category'
     ];
-    
+
     updateFields.forEach(field => {
       if (req.body[field] && req.body[field].trim()) {
         bar[field] = req.body[field].trim();
@@ -385,7 +385,7 @@ app.delete("/api/delete-bar/:barId", async (req, res) => {
   try {
     const { token } = req.body;
     const { barId } = req.params;
-    
+
     if (!token) {
       return res.status(400).json({
         success: false,
@@ -395,7 +395,7 @@ app.delete("/api/delete-bar/:barId", async (req, res) => {
 
     const decoded = jwt.verify(token, JWT_SECRET);
     const user = await User.findById(decoded.userId);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -460,7 +460,7 @@ app.get("/api/bar-stats/:barId", async (req, res) => {
   try {
     const { token } = req.query;
     const { barId } = req.params;
-    
+
     if (!token) {
       return res.status(400).json({
         success: false,
@@ -470,7 +470,7 @@ app.get("/api/bar-stats/:barId", async (req, res) => {
 
     const decoded = jwt.verify(token, JWT_SECRET);
     const user = await User.findById(decoded.userId);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -521,7 +521,7 @@ app.get("/api/bar-stats/:barId", async (req, res) => {
 
 ////********************************************////
 
-        // EVENTOS //
+// EVENTOS //
 ////********************************************////
 
 // filtrar eventos por fecha (today, next week, next month)
@@ -529,7 +529,7 @@ app.get("/api/events", async (req, res) => {
   const range = req.query.range;
   const now = new Date();
   const start = new Date(now.setHours(0, 0, 0, 0));
-  let end; 
+  let end;
 
   if (range === "today") {
     end = new Date();
@@ -559,7 +559,7 @@ app.get("/api/bars/:barId/events", async (req, res) => {
   const range = req.query.range;
   const now = new Date();
   const start = new Date(now.setHours(0, 0, 0, 0));
-  let end; 
+  let end;
 
   if (range === "today") {
     end = new Date();
@@ -572,7 +572,7 @@ app.get("/api/bars/:barId/events", async (req, res) => {
     end.setMonth(start.getMonth() + 1);
   } else if (range === "all") {
     end = new Date();
-    end.setFullYear(end.getFullYear() + 1); 
+    end.setFullYear(end.getFullYear() + 1);
   } else {
     return res.status(400).json({ message: "Rango inválido" });
   }
@@ -595,25 +595,25 @@ app.post("/api/bars/:barId/new-event", upload.single("image"), async (req, res) 
     const bar = await Bar.findById(barId);
 
     if (!bar) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: "Bar no encontrado" 
+        message: "Bar no encontrado"
       });
     }
 
     newItem = new Events({
       bar: barId,
-      title, 
-      description, 
-      location, 
-      date, 
-      image, 
+      title,
+      description,
+      location,
+      date,
+      image,
       createdAt: new Date()
     });
 
     await newItem.save();
 
-    res.status(201).json({ 
+    res.status(201).json({
       success: true,
       message: "Ítem creado exitosamente",
       data: newItem
@@ -621,10 +621,10 @@ app.post("/api/bars/:barId/new-event", upload.single("image"), async (req, res) 
   }
   catch (error) {
     console.error("Error al crear evento:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       message: "Error interno del servidor",
-      error: error.message 
+      error: error.message
     });
   }
 });
@@ -656,7 +656,7 @@ app.put("/api/bars/:barId/events/:eventId", upload.single("image"), async (req, 
   const { barId, eventId } = req.params;
   const { title, description, location, date } = req.body;
   const image = req.file ? `/uploads/${req.file.filename}` : null;
-  
+
   try {
     const bar = await Bar.findById(barId);
     if (!bar) {
@@ -676,18 +676,18 @@ app.put("/api/bars/:barId/events/:eventId", upload.single("image"), async (req, 
     await event.save();
 
     res.status(200).json({ message: "Evento actualizado exitosamente", event });
-  
+
   } catch (error) {
     res.status(500).json({ message: "Error al actualizar el evento", error });
   }
-  
+
 });
 
 ////********************************************////
 
 
 
-        // FAVORITOS //
+// FAVORITOS //
 ////********************************************////
 
 // agregar / quitar de favoritos un bar
@@ -751,46 +751,46 @@ app.get("/bars/:barId/events", async (req, res) => {
   }
 });
 
-        //TODO LO DE LOGIN Y REGISTER //
+//TODO LO DE LOGIN Y REGISTER //
 ////********************************************////
 
-const JWT_SECRET="asdk4923078sdkfjnbg;kljdtg1908234n1lik523fasdgf2jsabnd3893jvaso213dtn[]]be5r90ew5b"
+const JWT_SECRET = "asdk4923078sdkfjnbg;kljdtg1908234n1lik523fasdgf2jsabnd3893jvaso213dtn[]]be5r90ew5b"
 
 // para ver a los usuarios 
 app.get("/api/users", async (req, res) => {
-    try {
-      const UserDetails = require('./models/UserDetails.models');
-      const users = await UserDetails.find();
-        if (users.length === 0) {
-          return res.status(404).json({ message: "No se encontraron usuarios" });
-        } 
-        res.status(200).json(users);
-    } catch (error) {
-      res.status(500).json({ message: "Error al obtener a los usuarios", error: error.message });
+  try {
+    const UserDetails = require('./models/UserDetails.models');
+    const users = await UserDetails.find();
+    if (users.length === 0) {
+      return res.status(404).json({ message: "No se encontraron usuarios" });
     }
+    res.status(200).json(users);
+  } catch (error) {
+    res.status(500).json({ message: "Error al obtener a los usuarios", error: error.message });
+  }
 });
 
 app.post("/api/register", async (req, res) => {
   try {
     const { name, email, mobile, password } = req.body;
-    
-   
+
+
     if (!name || !email || !mobile || !password) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Todos los campos son requeridos" 
+        message: "Todos los campos son requeridos"
       });
     }
 
     const oldUser = await User.findOne({ email: email });
     if (oldUser) {
-      return res.status(409).json({ 
+      return res.status(409).json({
         success: false,
-        message: "El usuario ya existe" 
+        message: "El usuario ya existe"
       });
     }
 
-   
+
     const encryptedPassword = await bcrypt.hash(password, 10);
 
 
@@ -809,7 +809,7 @@ app.post("/api/register", async (req, res) => {
       createdAt: newUser.createdAt
     };
 
-    res.status(201).json({ 
+    res.status(201).json({
       success: true,
       message: "Usuario registrado exitosamente",
       data: userResponse
@@ -817,10 +817,10 @@ app.post("/api/register", async (req, res) => {
 
   } catch (error) {
     console.error("Error en registro:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       message: "Error en el servidor",
-      error: error.message 
+      error: error.message
     });
   }
 
@@ -838,9 +838,9 @@ app.post("/api/login", async (req, res) => {
       });
     }
 
-   
+
     const user = await User.findOne({ email: email });
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -857,12 +857,12 @@ app.post("/api/login", async (req, res) => {
     }
 
     const token = jwt.sign(
-      { 
+      {
         email: user.email,
-        userId: user._id 
-      }, 
+        userId: user._id
+      },
       JWT_SECRET,
-      { expiresIn: '1h' } 
+      { expiresIn: '1h' }
     );
 
     res.status(200).json({
@@ -892,19 +892,19 @@ app.post("/api/userdata", async (req, res) => {
   const { token } = req.body;
   try {
     if (!token) {
-      return res.status(400).json({ 
-        status: "error", 
-        message: "Token requerido" 
+      return res.status(400).json({
+        status: "error",
+        message: "Token requerido"
       });
     }
 
     const decoded = jwt.verify(token, JWT_SECRET);
     const userData = await User.findById(decoded.userId);
-    
+
     if (!userData) {
-      return res.status(404).json({ 
-        status: "error", 
-        message: "Usuario no encontrado" 
+      return res.status(404).json({
+        status: "error",
+        message: "Usuario no encontrado"
       });
     }
 
@@ -912,24 +912,25 @@ app.post("/api/userdata", async (req, res) => {
     const userResponse = userData.toObject();
     delete userResponse.password;
 
-    res.json({ 
-      status: "ok", 
-      data: userResponse 
+    res.json({
+      status: "ok",
+      data: userResponse
     });
   } catch (error) {
     console.error("Error in /api/userdata:", error);
     if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ 
-        status: "error", 
-        message: "Token inválido" 
+      return res.status(401).json({
+        status: "error",
+        message: "Token inválido"
       });
     }
-    res.status(500).json({ 
-      status: "error", 
+    res.status(500).json({
+      status: "error",
       message: "Error interno del servidor",
-      details: error.message 
+      details: error.message
     });
-  } });
+  }
+});
 
 //Update User
 app.put("/api/updateUser", upload.single("image"), async (req, res) => {
@@ -939,11 +940,11 @@ app.put("/api/updateUser", upload.single("image"), async (req, res) => {
     console.log("File:", req.file ? "Image uploaded" : "No image");
 
     const { token, name, email, mobile, gender, currentPassword, newPassword } = req.body;
-    
+
     if (!token) {
-      return res.status(400).json({ 
-        status: "error", 
-        message: "Token requerido" 
+      return res.status(400).json({
+        status: "error",
+        message: "Token requerido"
       });
     }
 
@@ -952,18 +953,18 @@ app.put("/api/updateUser", upload.single("image"), async (req, res) => {
     try {
       decoded = jwt.verify(token, JWT_SECRET);
     } catch (error) {
-      return res.status(401).json({ 
-        status: "error", 
-        message: "Token inválido" 
+      return res.status(401).json({
+        status: "error",
+        message: "Token inválido"
       });
     }
-    
+
     // Buscar usuario
     const user = await User.findById(decoded.userId);
     if (!user) {
-      return res.status(404).json({ 
-        status: "error", 
-        message: "Usuario no encontrado" 
+      return res.status(404).json({
+        status: "error",
+        message: "Usuario no encontrado"
       });
     }
 
@@ -990,7 +991,7 @@ app.put("/api/updateUser", upload.single("image"), async (req, res) => {
           message: "La contraseña actual es requerida"
         });
       }
-      
+
       // Verificar contraseña actual
       const isMatch = await bcrypt.compare(currentPassword, user.password);
       if (!isMatch) {
@@ -999,7 +1000,7 @@ app.put("/api/updateUser", upload.single("image"), async (req, res) => {
           message: "La contraseña actual es incorrecta"
         });
       }
-      
+
       // Hashear nueva contraseña
       const salt = await bcrypt.genSalt(10);
       user.password = await bcrypt.hash(newPassword.trim(), salt);
@@ -1025,7 +1026,7 @@ app.put("/api/updateUser", upload.single("image"), async (req, res) => {
           }
         }
       }
-      
+
       // Guardar nueva imagen - solo el path relativo
       user.image = `/uploads/${req.file.filename}`;
     }
@@ -1040,8 +1041,8 @@ app.put("/api/updateUser", upload.single("image"), async (req, res) => {
 
     // Generar nuevo token con tiempo de expiración extendido
     const newToken = jwt.sign(
-      { userId: user._id, email: user.email }, 
-      JWT_SECRET, 
+      { userId: user._id, email: user.email },
+      JWT_SECRET,
       { expiresIn: "7d" }
     );
 
@@ -1054,20 +1055,20 @@ app.put("/api/updateUser", upload.single("image"), async (req, res) => {
 
   } catch (error) {
     console.error("Error en updateUser:", error);
-    res.status(500).json({ 
-      status: "error", 
+    res.status(500).json({
+      status: "error",
       message: "Error interno del servidor",
-      details: error.message 
+      details: error.message
     });
   }
 });
 ////********************************************////
 // Rutas
 app.get("/", (req, res) => {
-    res.send("API de Reviews y Upvotes");
+  res.send("API de Reviews y Upvotes");
 });
 
-        //CRUD Bar //
+//CRUD Bar //
 ////********************************************////
 
 //Crear
@@ -1175,52 +1176,52 @@ app.delete("/api/bars/:id", async (req, res) => {
 
 
 
-        //MENU //
+//MENU //
 ////********************************************////
 
 // bebidas alcoholicas del bar
 app.get("/api/bars/:barId/alcoholic-drinks", async (req, res) => {
-    try {
-      const barId = req.params.barId;
-      const drinks = await DrinkItem.find({ bar: barId, isAlcoholic: true });
-      if (drinks.length === 0) {
-        return res.status(404).json({ message: "No se encontraron bebidas alcohólicas para este bar" });
-      } 
-      res.status(200).json(drinks);
-    } catch (error) {
-      console.error("Error al obtener bebidas alcohólicas:", error);
-      res.status(500).json({ message: "Error al obtener bebidas alcohólicas", error });
+  try {
+    const barId = req.params.barId;
+    const drinks = await DrinkItem.find({ bar: barId, isAlcoholic: true });
+    if (drinks.length === 0) {
+      return res.status(404).json({ message: "No se encontraron bebidas alcohólicas para este bar" });
     }
-  });
+    res.status(200).json(drinks);
+  } catch (error) {
+    console.error("Error al obtener bebidas alcohólicas:", error);
+    res.status(500).json({ message: "Error al obtener bebidas alcohólicas", error });
+  }
+});
 
-  // comida del bar
-  app.get("/api/bars/:barId/food", async (req, res) => {
-    try {
-      const barId = req.params.barId;
-      const food = await MenuItem.find({ bar: barId, itemType: 'food' });
-      if (food.length === 0) {
-        return res.status(404).json({ message: "No se encontró comida registrada para este bar" });
-      } 
-      res.status(200).json(food);
-    } catch (error) {
-      console.error("Error al obtener bebidas alcohólicas:", error);
-      res.status(500).json({ message: "Error al encontrar la comida registrada para este bar: ", error });
+// comida del bar
+app.get("/api/bars/:barId/food", async (req, res) => {
+  try {
+    const barId = req.params.barId;
+    const food = await MenuItem.find({ bar: barId, itemType: 'food' });
+    if (food.length === 0) {
+      return res.status(404).json({ message: "No se encontró comida registrada para este bar" });
     }
-  });
+    res.status(200).json(food);
+  } catch (error) {
+    console.error("Error al obtener bebidas alcohólicas:", error);
+    res.status(500).json({ message: "Error al encontrar la comida registrada para este bar: ", error });
+  }
+});
 
-  // bebidas del bar
-  app.get("/api/bars/:barId/drinks", async (req, res) => {
-    try {
-      const barId = req.params.barId;
-      const drinks = await DrinkItem.find({ bar: barId, isAlcoholic: false });
-      if (drinks.length === 0) {
-        return res.status(404).json({ message: "No se encontraron bebidas registradas para este bar" });
-      } 
-      res.status(200).json(drinks);
-    } catch (error) {
-      res.status(500).json({ message: "Error al encontrar las bebidas registradas para este bar:", error });
+// bebidas del bar
+app.get("/api/bars/:barId/drinks", async (req, res) => {
+  try {
+    const barId = req.params.barId;
+    const drinks = await DrinkItem.find({ bar: barId, isAlcoholic: false });
+    if (drinks.length === 0) {
+      return res.status(404).json({ message: "No se encontraron bebidas registradas para este bar" });
     }
-  });
+    res.status(200).json(drinks);
+  } catch (error) {
+    res.status(500).json({ message: "Error al encontrar las bebidas registradas para este bar:", error });
+  }
+});
 
 // CREATE item
 app.post("/api/bars/:barId/menu", upload.single("image"), async (req, res) => {
@@ -1232,14 +1233,14 @@ app.post("/api/bars/:barId/menu", upload.single("image"), async (req, res) => {
     // Verificar existencia del bar
     const bar = await Bar.findById(barId);
     if (!bar) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: "Bar no encontrado" 
+        message: "Bar no encontrado"
       });
     }
 
     let newItem;
-    
+
     if (itemType === "food") {
       newItem = new FoodItem({
         bar: barId,
@@ -1251,7 +1252,7 @@ app.post("/api/bars/:barId/menu", upload.single("image"), async (req, res) => {
         calories: req.body.calories ? parseInt(req.body.calories) : null,
         category: req.body.category
       });
-    } 
+    }
     else if (itemType === "drink") {
       newItem = new DrinkItem({
         bar: barId,
@@ -1265,17 +1266,17 @@ app.post("/api/bars/:barId/menu", upload.single("image"), async (req, res) => {
         category: req.body.category,
         servingTemperature: req.body.servingTemperature
       });
-    } 
+    }
     else {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Tipo de ítem inválido" 
+        message: "Tipo de ítem inválido"
       });
     }
 
     await newItem.save();
 
-    res.status(201).json({ 
+    res.status(201).json({
       success: true,
       message: "Ítem creado exitosamente",
       data: newItem
@@ -1283,10 +1284,10 @@ app.post("/api/bars/:barId/menu", upload.single("image"), async (req, res) => {
 
   } catch (error) {
     console.error("Error al crear ítem:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       message: "Error interno del servidor",
-      error: error.message 
+      error: error.message
     });
   }
 });
@@ -1297,7 +1298,7 @@ app.get("/api/bars/:barId/menu", async (req, res) => {
     const barId = req.params.barId;
     const { type } = req.query;
 
-    
+
     let query = { bar: barId };
     if (type) {
       query.itemType = type === 'food' ? 'FoodItem' : 'DrinkItem';
@@ -1314,7 +1315,7 @@ app.get("/api/bars/:barId/menu", async (req, res) => {
         .sort({ createdAt: -1 }),
       BaseItem.countDocuments(query)
     ]);
-    
+
     const result = {};
     if (!type) {
       items.forEach(item => {
@@ -1339,10 +1340,10 @@ app.get("/api/bars/:barId/menu", async (req, res) => {
 
   } catch (error) {
     console.error("Error al obtener menú:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       message: "Error al obtener el menú",
-      error: error.message 
+      error: error.message
     });
   }
 });
@@ -1353,9 +1354,9 @@ app.get("/api/menu/:itemId", async (req, res) => {
     const item = await BaseItem.findById(req.params.itemId).populate("bar", "name address");
 
     if (!item) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: "Ítem no encontrado" 
+        message: "Ítem no encontrado"
       });
     }
 
@@ -1366,10 +1367,10 @@ app.get("/api/menu/:itemId", async (req, res) => {
 
   } catch (error) {
     console.error("Error al obtener ítem:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       message: "Error al obtener el ítem",
-      error: error.message 
+      error: error.message
     });
   }
 });
@@ -1389,7 +1390,7 @@ app.get("/api/bars/:barId/menu/search", async (req, res) => {
       });
     }
 
-   
+
     const query = { bar: barId };
 
     if (q) {
@@ -1409,7 +1410,7 @@ app.get("/api/bars/:barId/menu/search", async (req, res) => {
       if (maxPrice) query.price.$lte = parseFloat(maxPrice);
     }
 
-  
+
     const results = await BaseItem.find(query)
       .sort({ price: 1, name: 1 })
       .limit(50);
@@ -1439,9 +1440,9 @@ app.put("/api/menu/:itemId", upload.single("image"), async (req, res) => {
     // Obtener el ítem actual para determinar su tipo
     const currentItem = await BaseItem.findById(itemId);
     if (!currentItem) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: "Ítem no encontrado" 
+        message: "Ítem no encontrado"
       });
     }
 
@@ -1459,7 +1460,7 @@ app.put("/api/menu/:itemId", upload.single("image"), async (req, res) => {
         calories: req.body.calories ? parseInt(req.body.calories) : null,
         category: req.body.category
       };
-    } 
+    }
     else if (itemType === "drink" || currentItem.itemType === "DrinkItem") {
       updateData.drinkDetails = {
         isAlcoholic: req.body.isAlcoholic === "true",
@@ -1472,14 +1473,14 @@ app.put("/api/menu/:itemId", upload.single("image"), async (req, res) => {
 
     let updatedItem;
     if (currentItem.itemType === "FoodItem") {
-      updatedItem = await FoodItem.findByIdAndUpdate(itemId, updateData, { 
-        new: true, 
-        runValidators: true 
+      updatedItem = await FoodItem.findByIdAndUpdate(itemId, updateData, {
+        new: true,
+        runValidators: true
       });
     } else {
-      updatedItem = await DrinkItem.findByIdAndUpdate(itemId, updateData, { 
-        new: true, 
-        runValidators: true 
+      updatedItem = await DrinkItem.findByIdAndUpdate(itemId, updateData, {
+        new: true,
+        runValidators: true
       });
     }
 
@@ -1491,10 +1492,10 @@ app.put("/api/menu/:itemId", upload.single("image"), async (req, res) => {
 
   } catch (error) {
     console.error("Error al actualizar ítem:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       message: "Error al actualizar el ítem",
-      error: error.message 
+      error: error.message
     });
   }
 });
@@ -1505,9 +1506,9 @@ app.delete("/api/menu/:itemId", async (req, res) => {
     const item = await BaseItem.findByIdAndDelete(req.params.itemId);
 
     if (!item) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: "Ítem no encontrado" 
+        message: "Ítem no encontrado"
       });
     }
 
@@ -1518,10 +1519,10 @@ app.delete("/api/menu/:itemId", async (req, res) => {
 
   } catch (error) {
     console.error("Error al eliminar ítem:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       message: "Error al eliminar el ítem",
-      error: error.message 
+      error: error.message
     });
   }
 });
@@ -1529,7 +1530,7 @@ app.delete("/api/menu/:itemId", async (req, res) => {
 ////********************************************////
 
 
-                //Reviews CRUD
+//Reviews CRUD
 ////********************************************////
 
 
@@ -1540,17 +1541,17 @@ app.get("/api/bars/:barId/reviews", async (req, res) => {
   try {
     console.log("Fetching reviews for bar:", req.params.barId);
     console.log("Available models check:");
-console.log("Review model:", !!Review);
-console.log("UpvoteReview model:", !!UpvoteReview);  
-console.log("Comment model:", !!Comment);
+    console.log("Review model:", !!Review);
+    console.log("UpvoteReview model:", !!UpvoteReview);
+    console.log("Comment model:", !!Comment);
 
     const { barId } = req.params;
 
     // Validate barId format solo si estás usando MongoDB ObjectId
     if (barId && barId.length === 24 && !barId.match(/^[0-9a-fA-F]{24}$/)) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Invalid bar ID format" 
+        message: "Invalid bar ID format"
       });
     }
 
@@ -1572,8 +1573,8 @@ console.log("Comment model:", !!Comment);
         .populate({
           path: 'user',
           select: 'name email image',
-          options: { 
-            strictPopulate: false 
+          options: {
+            strictPopulate: false
           }
         })
         .sort({ createdAt: -1 })
@@ -1590,9 +1591,9 @@ console.log("Comment model:", !!Comment);
 
     // Si no hay reviews, retornar array vacío
     if (!reviews || reviews.length === 0) {
-      return res.status(200).json({ 
+      return res.status(200).json({
         success: true,
-        data: [] 
+        data: []
       });
     }
 
@@ -1602,9 +1603,9 @@ console.log("Comment model:", !!Comment);
     for (const review of reviews) {
       try {
         // Handle case where user might be null
-        const userInfo = review.user || { 
-          name: "Usuario", 
-          email: "", 
+        const userInfo = review.user || {
+          name: "Usuario",
+          email: "",
           image: "",
           _id: null
         };
@@ -1628,7 +1629,7 @@ console.log("Comment model:", !!Comment);
         } catch (commentError) {
           console.warn("Error counting comments:", commentError);
         }
-        
+
         reviewsWithData.push({
           _id: review._id,
           user: userInfo,
@@ -1658,15 +1659,15 @@ console.log("Comment model:", !!Comment);
       }
     }
 
-    res.status(200).json({ 
+    res.status(200).json({
       success: true,
-      data: reviewsWithData 
+      data: reviewsWithData
     });
 
   } catch (error) {
     console.error("Error fetching reviews - Full error:", error);
     console.error("Error stack:", error.stack);
-    
+
     // Respuestas de error más específicas
     if (error.name === 'CastError') {
       return res.status(400).json({
@@ -1674,7 +1675,7 @@ console.log("Comment model:", !!Comment);
         message: "Invalid ID format"
       });
     }
-    
+
     if (error.name === 'ValidationError') {
       return res.status(400).json({
         success: false,
@@ -1683,7 +1684,7 @@ console.log("Comment model:", !!Comment);
     }
 
     // Error genérico
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       message: "Error fetching reviews",
       error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
@@ -1698,48 +1699,48 @@ app.post("/api/bars/:barId/reviews", async (req, res) => {
     const { token, rating, comment } = req.body;
     const { barId } = req.params;
 
-    console.log("Creating review with data:", { 
-      barId, 
-      rating, 
+    console.log("Creating review with data:", {
+      barId,
+      rating,
       comment: comment?.substring(0, 50) + "...",
-      hasToken: !!token 
+      hasToken: !!token
     });
 
     // Validate barId format
     if (!barId || !barId.match(/^[0-9a-fA-F]{24}$/)) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Invalid bar ID format" 
+        message: "Invalid bar ID format"
       });
     }
 
     // Validaciones básicas
     if (!token) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Token is required" 
+        message: "Token is required"
       });
     }
 
     if (!rating || !comment) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Rating and comment are required" 
+        message: "Rating and comment are required"
       });
     }
 
     const numRating = parseInt(rating);
     if (isNaN(numRating) || numRating < 1 || numRating > 5) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Rating must be a number between 1 and 5" 
+        message: "Rating must be a number between 1 and 5"
       });
     }
 
     if (typeof comment !== 'string' || comment.trim().length === 0) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Comment must be a non-empty string" 
+        message: "Comment must be a non-empty string"
       });
     }
 
@@ -1750,53 +1751,53 @@ app.post("/api/bars/:barId/reviews", async (req, res) => {
       if (!process.env.JWT_SECRET && !JWT_SECRET) {
         throw new Error('JWT_SECRET not configured');
       }
-      
+
       const secret = process.env.JWT_SECRET || JWT_SECRET;
       decoded = jwt.verify(token, secret);
     } catch (jwtError) {
       console.error("JWT verification failed:", jwtError);
-      return res.status(401).json({ 
+      return res.status(401).json({
         success: false,
-        message: "Invalid or expired token" 
+        message: "Invalid or expired token"
       });
     }
 
     // Validate decoded token structure
     if (!decoded.userId) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         success: false,
-        message: "Invalid token structure" 
+        message: "Invalid token structure"
       });
     }
 
     // Find user
     const user = await User.findById(decoded.userId);
     if (!user) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: "User not found" 
+        message: "User not found"
       });
     }
 
     // Verificar que el bar existe
     const bar = await Bar.findById(barId);
     if (!bar) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: "Bar not found" 
+        message: "Bar not found"
       });
     }
 
     // Check if user already has a review for this bar
-    const existingReview = await Review.findOne({ 
-      user: user._id, 
-      bar: barId 
+    const existingReview = await Review.findOne({
+      user: user._id,
+      bar: barId
     });
 
     if (existingReview) {
       return res.status(409).json({ // Changed to 409 Conflict
         success: false,
-        message: "You have already reviewed this bar. Use PUT to update your review." 
+        message: "You have already reviewed this bar. Use PUT to update your review."
       });
     }
 
@@ -1829,9 +1830,9 @@ app.post("/api/bars/:barId/reviews", async (req, res) => {
       updatedAt: newReview.updatedAt
     };
 
-    res.status(201).json({ 
+    res.status(201).json({
       success: true,
-      message: "Review created successfully", 
+      message: "Review created successfully",
       data: {
         review: reviewResponse
       }
@@ -1840,27 +1841,27 @@ app.post("/api/bars/:barId/reviews", async (req, res) => {
   } catch (error) {
     console.error("Error creating review - Full error:", error);
     console.error("Error stack:", error.stack);
-    
+
     // More specific error handling
     if (error.name === 'ValidationError') {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Validation error", 
-        error: error.message 
-      });
-    }
-    
-    if (error.name === 'CastError') {
-      return res.status(400).json({ 
-        success: false,
-        message: "Invalid ID format", 
-        error: error.message 
+        message: "Validation error",
+        error: error.message
       });
     }
 
-    res.status(500).json({ 
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid ID format",
+        error: error.message
+      });
+    }
+
+    res.status(500).json({
       success: false,
-      message: "Internal server error", 
+      message: "Internal server error",
       error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
     });
   }
@@ -1876,17 +1877,17 @@ app.put("/api/reviews/:reviewId", async (req, res) => {
 
     // Validate reviewId format
     if (!reviewId.match(/^[0-9a-fA-F]{24}$/)) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Invalid review ID format" 
+        message: "Invalid review ID format"
       });
     }
 
     // Validaciones básicas
     if (!token) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Token is required" 
+        message: "Token is required"
       });
     }
 
@@ -1896,41 +1897,41 @@ app.put("/api/reviews/:reviewId", async (req, res) => {
       const secret = process.env.JWT_SECRET || JWT_SECRET;
       decoded = jwt.verify(token, secret);
     } catch (jwtError) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         success: false,
-        message: "Invalid or expired token" 
+        message: "Invalid or expired token"
       });
     }
 
     if (!decoded.userId) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         success: false,
-        message: "Invalid token structure" 
+        message: "Invalid token structure"
       });
     }
 
     const user = await User.findById(decoded.userId);
     if (!user) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: "User not found" 
+        message: "User not found"
       });
     }
 
     // Find review
     const review = await Review.findById(reviewId);
     if (!review) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: "Review not found" 
+        message: "Review not found"
       });
     }
 
     // Ensure the user owns the review
     if (review.user.toString() !== user._id.toString()) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         success: false,
-        message: "You are not authorized to edit this review" 
+        message: "You are not authorized to edit this review"
       });
     }
 
@@ -1938,26 +1939,26 @@ app.put("/api/reviews/:reviewId", async (req, res) => {
     if (rating !== undefined) {
       const numRating = parseInt(rating);
       if (isNaN(numRating) || numRating < 1 || numRating > 5) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           success: false,
-          message: "Rating must be a number between 1 and 5" 
+          message: "Rating must be a number between 1 and 5"
         });
       }
       review.rating = numRating;
     }
-    
+
     if (comment !== undefined) {
       if (typeof comment !== 'string' || comment.trim().length === 0) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           success: false,
-          message: "Comment must be a non-empty string" 
+          message: "Comment must be a non-empty string"
         });
       }
       review.comment = comment.trim();
     }
 
     await review.save();
-    
+
     // Populate the user data for the response
     await review.populate('user', 'name email image');
 
@@ -1977,18 +1978,18 @@ app.put("/api/reviews/:reviewId", async (req, res) => {
       updatedAt: review.updatedAt
     };
 
-    res.status(200).json({ 
+    res.status(200).json({
       success: true,
-      message: "Review updated successfully", 
+      message: "Review updated successfully",
       data: {
         review: reviewWithData
       }
     });
   } catch (error) {
     console.error("Error updating review:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: "Internal server error", 
+      message: "Internal server error",
       error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
     });
   }
@@ -2005,16 +2006,16 @@ app.delete("/api/reviews/:reviewId", async (req, res) => {
 
     // Validate reviewId format
     if (!reviewId.match(/^[0-9a-fA-F]{24}$/)) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Invalid review ID format" 
+        message: "Invalid review ID format"
       });
     }
 
     if (!token) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Token is required" 
+        message: "Token is required"
       });
     }
 
@@ -2024,41 +2025,41 @@ app.delete("/api/reviews/:reviewId", async (req, res) => {
       const secret = process.env.JWT_SECRET || JWT_SECRET;
       decoded = jwt.verify(token, secret);
     } catch (jwtError) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         success: false,
-        message: "Invalid or expired token" 
+        message: "Invalid or expired token"
       });
     }
 
     if (!decoded.userId) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         success: false,
-        message: "Invalid token structure" 
+        message: "Invalid token structure"
       });
     }
 
     const user = await User.findById(decoded.userId);
     if (!user) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: "User not found" 
+        message: "User not found"
       });
     }
 
     // Find review
     const review = await Review.findById(reviewId);
     if (!review) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: "Review not found" 
+        message: "Review not found"
       });
     }
 
     // Ensure the user owns the review
     if (review.user.toString() !== user._id.toString()) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         success: false,
-        message: "You are not authorized to delete this review" 
+        message: "You are not authorized to delete this review"
       });
     }
 
@@ -2069,15 +2070,15 @@ app.delete("/api/reviews/:reviewId", async (req, res) => {
     // Delete the review
     await Review.deleteOne({ _id: reviewId });
 
-    res.status(200).json({ 
+    res.status(200).json({
       success: true,
-      message: "Review deleted successfully" 
+      message: "Review deleted successfully"
     });
   } catch (error) {
     console.error("Error deleting review:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: "Internal server error", 
+      message: "Internal server error",
       error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
     });
   }
@@ -2086,7 +2087,7 @@ app.delete("/api/reviews/:reviewId", async (req, res) => {
 
 ////********************************************////
 
-                //COMMENTARIOS Y UPVOTES EN REVIEWS
+//COMMENTARIOS Y UPVOTES EN REVIEWS
 ////********************************************////
 
 app.post("/api/reviews/:reviewId/comments", async (req, res) => {
@@ -2096,23 +2097,23 @@ app.post("/api/reviews/:reviewId/comments", async (req, res) => {
 
     // Validate reviewId format
     if (!reviewId.match(/^[0-9a-fA-F]{24}$/)) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Invalid review ID format" 
+        message: "Invalid review ID format"
       });
     }
 
     if (!token || !comment) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Token and comment are required" 
+        message: "Token and comment are required"
       });
     }
 
     if (typeof comment !== 'string' || comment.trim().length === 0) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Comment must be a non-empty string" 
+        message: "Comment must be a non-empty string"
       });
     }
 
@@ -2122,33 +2123,33 @@ app.post("/api/reviews/:reviewId/comments", async (req, res) => {
       const secret = process.env.JWT_SECRET || JWT_SECRET;
       decoded = jwt.verify(token, secret);
     } catch (jwtError) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         success: false,
-        message: "Invalid or expired token" 
+        message: "Invalid or expired token"
       });
     }
 
     if (!decoded.userId) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         success: false,
-        message: "Invalid token structure" 
+        message: "Invalid token structure"
       });
     }
 
     const user = await User.findById(decoded.userId);
     if (!user) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: "User not found" 
+        message: "User not found"
       });
     }
 
     // Check if review exists
     const review = await Review.findById(reviewId);
     if (!review) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: "Review not found" 
+        message: "Review not found"
       });
     }
 
@@ -2162,17 +2163,17 @@ app.post("/api/reviews/:reviewId/comments", async (req, res) => {
     await newComment.save();
     await newComment.populate('user', 'name email image');
 
-    res.status(201).json({ 
+    res.status(201).json({
       success: true,
-      message: "Comment created successfully", 
-      data: newComment 
+      message: "Comment created successfully",
+      data: newComment
     });
 
   } catch (error) {
     console.error("Error creating comment:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: "Internal server error", 
+      message: "Internal server error",
       error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
     });
   }
@@ -2183,23 +2184,23 @@ app.get("/api/reviews/:reviewId/comments", async (req, res) => {
     const { reviewId } = req.params;
 
     console.log("Iniciando obtención de comentarios para review:", reviewId);
-    
+
     // Validación mejorada del ID
     if (!mongoose.Types.ObjectId.isValid(reviewId)) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Formato de ID de reseña inválido" 
+        message: "Formato de ID de reseña inválido"
       });
     }
 
     console.log("Buscando review en la base de datos...");
     const review = await Review.findById(reviewId).lean();
-    
+
     if (!review) {
       console.log("Review no encontrada");
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: "Reseña no encontrada" 
+        message: "Reseña no encontrada"
       });
     }
 
@@ -2214,10 +2215,10 @@ app.get("/api/reviews/:reviewId/comments", async (req, res) => {
       .lean();
 
     console.log(`Encontrados ${comments.length} comentarios`);
-      
-    res.status(200).json({ 
+
+    res.status(200).json({
       success: true,
-      data: comments 
+      data: comments
     });
 
   } catch (error) {
@@ -2226,8 +2227,8 @@ app.get("/api/reviews/:reviewId/comments", async (req, res) => {
       stack: error.stack,
       params: req.params
     });
-    
-    res.status(500).json({ 
+
+    res.status(500).json({
       success: false,
       message: "Error interno al obtener comentarios",
       error: process.env.NODE_ENV === 'development' ? error.message : null
@@ -2237,7 +2238,7 @@ app.get("/api/reviews/:reviewId/comments", async (req, res) => {
 
 ////********************************************////
 
-                //UPVOTES para reseñas (likes)
+//UPVOTES para reseñas (likes)
 ////********************************************////
 
 app.post("/api/reviews/:reviewId/upvotes", async (req, res) => {
@@ -2249,16 +2250,16 @@ app.post("/api/reviews/:reviewId/upvotes", async (req, res) => {
 
     // Validate reviewId format
     if (!reviewId.match(/^[0-9a-fA-F]{24}$/)) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Invalid review ID format" 
+        message: "Invalid review ID format"
       });
     }
 
     if (!token) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Token is required" 
+        message: "Token is required"
       });
     }
 
@@ -2268,40 +2269,40 @@ app.post("/api/reviews/:reviewId/upvotes", async (req, res) => {
       const secret = process.env.JWT_SECRET || JWT_SECRET;
       decoded = jwt.verify(token, secret);
     } catch (jwtError) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         success: false,
-        message: "Invalid or expired token" 
+        message: "Invalid or expired token"
       });
     }
 
     if (!decoded.userId) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         success: false,
-        message: "Invalid token structure" 
+        message: "Invalid token structure"
       });
     }
 
     const user = await User.findById(decoded.userId);
     if (!user) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: "User not found" 
+        message: "User not found"
       });
     }
 
     // Check if review exists
     const review = await Review.findById(reviewId);
     if (!review) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: "Review not found" 
+        message: "Review not found"
       });
     }
 
     // Check if user already upvoted
-    const existingUpvote = await UpvoteReview.findOne({ 
-      user: user._id, 
-      review: reviewId 
+    const existingUpvote = await UpvoteReview.findOne({
+      user: user._id,
+      review: reviewId
     });
 
     if (existingUpvote) {
@@ -2319,7 +2320,7 @@ app.post("/api/reviews/:reviewId/upvotes", async (req, res) => {
     // Get updated count
     const upvoteCount = await UpvoteReview.countDocuments({ review: reviewId });
 
-    res.status(200).json({ 
+    res.status(200).json({
       success: true,
       upvotes: upvoteCount,
       count: upvoteCount,
@@ -2328,9 +2329,9 @@ app.post("/api/reviews/:reviewId/upvotes", async (req, res) => {
 
   } catch (error) {
     console.error("Error handling upvote:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: "Internal server error", 
+      message: "Internal server error",
       error: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
     });
   }
@@ -2338,7 +2339,7 @@ app.post("/api/reviews/:reviewId/upvotes", async (req, res) => {
 
 ////********************************************////
 
-          //Auth para maybe usarlo
+//Auth para maybe usarlo
 ////********************************************////
 const authenticate = async (req, res, next) => {
   try {
@@ -2347,7 +2348,7 @@ const authenticate = async (req, res, next) => {
 
     const decoded = jwt.verify(token, JWT_SECRET);
     const user = await User.findById(decoded.userId);
-    
+
     if (!user) return res.status(404).json({ error: "Usuario no encontrado" });
 
     req.user = user;
@@ -2361,7 +2362,227 @@ const authenticate = async (req, res, next) => {
 
 ////********************************************////
 
+// BUSINESS ENDPOINTS //
+////********************************************////
+
+// Obtener estadísticas del bar
+app.get("/api/business/bar/:barId/stats", verifyAdminPermissions, async (req, res) => {
+  try {
+    const barId = req.params.barId;
+    const user = req.user;
+
+    // Verificar que el usuario puede gestionar este bar
+    if (!user.canManageBar(barId)) {
+      return res.status(403).json({
+        success: false,
+        message: "No tienes permisos para ver las estadísticas de este bar"
+      });
+    }
+
+    const bar = await Bar.findById(barId);
+    if (!bar) {
+      return res.status(404).json({
+        success: false,
+        message: "Bar no encontrado"
+      });
+    }
+
+    // Obtener estadísticas
+    const stats = {
+      totalReviews: await Review.countDocuments({ bar: barId }),
+      averageRating: bar.averageRating || 0,
+      totalMenuItems: await MenuItem.countDocuments({ bar: barId }),
+      totalEvents: await Events.countDocuments({ bar: barId }),
+      viewCount: bar.viewCount || 0,
+      // Agregar más estadísticas según necesites
+    };
+
+    res.status(200).json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error obteniendo estadísticas",
+      error: error.message
+    });
+  }
+});
+
+// Actualizar información del bar
+app.put("/api/business/bar/:barId", verifyAdminPermissions, upload.array('images', 5), async (req, res) => {
+  try {
+    const barId = req.params.barId;
+    const user = req.user;
+    const {
+      name,
+      description,
+      address,
+      city,
+      phone,
+      email,
+      website,
+      openingHours,
+      priceRange,
+      category,
+      specialties
+    } = req.body;
+
+    // Verificar permisos
+    if (!user.canManageBar(barId)) {
+      return res.status(403).json({
+        success: false,
+        message: "No tienes permisos para actualizar este bar"
+      });
+    }
+
+    const bar = await Bar.findById(barId);
+    if (!bar) {
+      return res.status(404).json({
+        success: false,
+        message: "Bar no encontrado"
+      });
+    }
+
+    // Actualizar campos
+    if (name) bar.name = name;
+    if (description) bar.description = description;
+    if (address) bar.address = address;
+    if (city) bar.city = city;
+    if (phone) bar.phone = phone;
+    if (email) bar.email = email;
+    if (website) bar.website = website;
+    if (openingHours) bar.openingHours = JSON.parse(openingHours);
+    if (priceRange) bar.priceRange = priceRange;
+    if (category) bar.category = category;
+    if (specialties) bar.specialties = specialties.split(',');
+
+    // Procesar nuevas imágenes
+    if (req.files && req.files.length > 0) {
+      const newImages = req.files.map(file => `/uploads/${file.filename}`);
+      bar.images = [...bar.images, ...newImages];
+    }
+
+    await bar.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Bar actualizado exitosamente",
+      data: bar
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error actualizando el bar",
+      error: error.message
+    });
+  }
+});
+
+// Gestionar fotos del bar
+app.post("/api/business/bar/:barId/photos", verifyAdminPermissions, upload.array('images', 10), async (req, res) => {
+  try {
+    const barId = req.params.barId;
+    const user = req.user;
+
+    if (!user.hasPermission('canManagePhotos')) {
+      return res.status(403).json({
+        success: false,
+        message: "No tienes permisos para gestionar fotos"
+      });
+    }
+
+    const bar = await Bar.findById(barId);
+    if (!bar) {
+      return res.status(404).json({
+        success: false,
+        message: "Bar no encontrado"
+      });
+    }
+
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No se proporcionaron imágenes"
+      });
+    }
+
+    const newImages = req.files.map(file => `/uploads/${file.filename}`);
+    bar.images = [...bar.images, ...newImages];
+    await bar.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Imágenes agregadas exitosamente",
+      data: {
+        images: newImages
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error subiendo imágenes",
+      error: error.message
+    });
+  }
+});
+
+// Eliminar foto del bar
+app.delete("/api/business/bar/:barId/photos/:photoId", verifyAdminPermissions, async (req, res) => {
+  try {
+    const { barId, photoId } = req.params;
+    const user = req.user;
+
+    if (!user.hasPermission('canManagePhotos')) {
+      return res.status(403).json({
+        success: false,
+        message: "No tienes permisos para eliminar fotos"
+      });
+    }
+
+    const bar = await Bar.findById(barId);
+    if (!bar) {
+      return res.status(404).json({
+        success: false,
+        message: "Bar no encontrado"
+      });
+    }
+
+    // Eliminar la imagen del array
+    const imageIndex = bar.images.findIndex(img => img.includes(photoId));
+    if (imageIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: "Imagen no encontrada"
+      });
+    }
+
+    // Eliminar archivo físico
+    const imagePath = path.join(__dirname, bar.images[imageIndex]);
+    if (fs.existsSync(imagePath)) {
+      fs.unlinkSync(imagePath);
+    }
+
+    // Eliminar referencia de la base de datos
+    bar.images.splice(imageIndex, 1);
+    await bar.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Imagen eliminada exitosamente"
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error eliminando la imagen",
+      error: error.message
+    });
+  }
+});
+
+////********************************************////
 
 app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
+  console.log(`Server running on port ${port}`);
 });

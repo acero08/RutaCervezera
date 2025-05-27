@@ -613,7 +613,8 @@ export default class ApiService {
     name: string,
     email: string,
     mobile: string,
-    password: string
+    password: string,
+    accountType: string = 'user'
   ) {
     try {
       const response = await axios.post(`${this.api}/register`, {
@@ -621,16 +622,9 @@ export default class ApiService {
         email,
         mobile,
         password,
+        accountType
       });
-
-      if (response.data.success) {
-        return {
-          token: response.data.token,
-          user: response.data.data,
-        };
-      } else {
-        throw new Error(response.data.message);
-      }
+      return response.data;
     } catch (error: any) {
       HandleLoginError(error);
       throw error;

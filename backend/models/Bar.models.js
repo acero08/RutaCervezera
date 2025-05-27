@@ -100,9 +100,9 @@ const BarSchema = new mongoose.Schema({
   amenities: [{
     type: String,
     enum: [
-      'wifi', 'parking', 'outdoor_seating', 'live_music', 
-      'karaoke', 'pool_table', 'darts', 'sports_tv', 
-      'food_service', 'happy_hour', 'vip_area', 
+      'wifi', 'parking', 'outdoor_seating', 'live_music',
+      'karaoke', 'pool_table', 'darts', 'sports_tv',
+      'food_service', 'happy_hour', 'vip_area',
       'accessibility', 'smoking_area', 'dance_floor'
     ]
   }],
@@ -126,7 +126,7 @@ BarSchema.index({ location: '2dsphere' });
 BarSchema.index({ owner: 1 });
 
 // Middleware para actualizar el contador de reviews cuando se calcula el promedio
-BarSchema.methods.updateRating = function(newRating, isNewReview = true) {
+BarSchema.methods.updateRating = function (newRating, isNewReview = true) {
   if (isNewReview) {
     const totalRating = (this.averageRating * this.reviewCount) + newRating;
     this.reviewCount += 1;
@@ -139,7 +139,7 @@ BarSchema.methods.updateRating = function(newRating, isNewReview = true) {
 };
 
 // Método para incrementar el contador de vistas
-BarSchema.methods.incrementViewCount = function() {
+BarSchema.methods.incrementViewCount = function () {
   this.viewCount += 1;
   return this.save();
 };

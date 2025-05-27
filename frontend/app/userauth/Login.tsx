@@ -9,17 +9,40 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
 } from "react-native";
 import { useAuth } from "../../context/AuthContext";
-import { Link } from "expo-router";
+import { Link, useRouter } from "expo-router";
 import { MaterialIcons, Feather } from "@expo/vector-icons";
 
 export default function LoginScreen() {
   const { login } = useAuth();
+  const router = useRouter();
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [rememberMe, setRememberMe] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(false);
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert("Error", "Por favor ingresa tu correo y contraseña");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      await login(email, password);
+      // La redirección se maneja automáticamente en el AuthContext
+    } catch (error) {
+      Alert.alert(
+        "Error",
+        "No pudimos iniciar sesión. Por favor verifica tus credenciales."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <KeyboardAvoidingView
@@ -123,20 +146,33 @@ export default function LoginScreen() {
 
             {/* Login Button */}
             <TouchableOpacity
-              onPress={() => login(email, password)}
-              className="bg-amber-600 py-4 rounded-xl mb-5"
+              onPress={handleLogin}
+              disabled={isLoading}
+              className={`${
+                isLoading ? "bg-amber-800" : "bg-amber-600"
+              } py-4 rounded-xl mb-5`}
             >
               <Text className="text-white font-bold text-center text-lg">
-                Iniciar Sesión
+                {isLoading ? "Iniciando sesión..." : "Iniciar Sesión"}
               </Text>
             </TouchableOpacity>
 
             {/* Register Link */}
-            <View className="flex-row justify-center">
+            <View className="flex-row justify-center mb-4">
               <Text className="text-gray-400">¿No tienes cuenta? </Text>
               <Link href="/userauth/Register" asChild>
                 <TouchableOpacity>
                   <Text className="text-amber-500 font-bold">Regístrate</Text>
+                </TouchableOpacity>
+              </Link>
+            </View>
+
+            {/* Business Account Link */}
+            <View className="flex-row justify-center">
+              <Text className="text-gray-400">¿Eres dueño de un bar? </Text>
+              <Link href="/userauth/AdminRegister" asChild>
+                <TouchableOpacity>
+                  <Text className="text-amber-500 font-bold">Cuenta Business</Text>
                 </TouchableOpacity>
               </Link>
             </View>

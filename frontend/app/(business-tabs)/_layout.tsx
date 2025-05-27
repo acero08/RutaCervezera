@@ -1,11 +1,13 @@
 import React from "react";
 import { Tabs, Redirect } from "expo-router";
-import { Octicons, FontAwesome } from "@expo/vector-icons";
+import { Ionicons, Octicons } from "@expo/vector-icons";
 import { useAuth } from "../../context/AuthContext";
 import { View, ActivityIndicator } from "react-native";
 
-export default function UserLayout() {
+export default function BusinessLayout() {
   const { user, loading } = useAuth();
+
+  console.log('BusinessLayout - Current user:', user?.accountType);
 
   // Si está cargando, muestra un indicador de carga
   if (loading) {
@@ -16,15 +18,15 @@ export default function UserLayout() {
     );
   }
 
-  // Si no hay usuario o es una cuenta business, redirige a la página principal
-  if (!user || user.accountType === 'business') {
+  // Si no hay usuario o no es una cuenta business, redirige a la página principal
+  if (!user || user.accountType !== 'business') {
+    console.log('Unauthorized access to business layout, redirecting...');
     return <Redirect href="/" />;
   }
 
   return (
     <Tabs
       screenOptions={{
-        ///tabBarShowLabel: false,
         tabBarItemStyle: {
           width: "100%",
           height: "100%",
@@ -40,29 +42,47 @@ export default function UserLayout() {
       }}
     >
       <Tabs.Screen
-        name="collection"
+        name="hosting"
         options={{
-          title: "Search",
+          title: "Hosting",
           tabBarIcon: ({ color, size }) => (
-            <Octicons name="search" size={size} color={color} />
+            <Octicons name="calendar" size={size} color={color} />
           ),
         }}
       />
-<Tabs.Screen
+      <Tabs.Screen
+        name="preview"
+        options={{
+          title: "Vista Previa",
+          tabBarIcon: ({ color, size }) => (
+            <Octicons name="eye" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
-          title: "Me",
+          title: "Perfil",
           tabBarIcon: ({ color, size }) => (
             <Octicons name="person" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="events"
+        name="reports"
         options={{
-          title: "Events",
+          title: "Reportes",
           tabBarIcon: ({ color, size }) => (
-            <FontAwesome name="calendar" size={size} color={color} />
+            <Octicons name="graph" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="business"
+        options={{
+          title: "Business",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="business" size={24} color={color}/>
           ),
         }}
       />

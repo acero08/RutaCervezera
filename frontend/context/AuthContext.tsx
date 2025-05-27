@@ -19,6 +19,7 @@ interface User {
   gender?: string;
   image?: string;
   accountType?: string;
+  managedBars?: string[];
   [key: string]: any;
 }
 
@@ -58,29 +59,25 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   useEffect(() => {
     const checkLogin = async () => {
       try {
+        console.log('CheckLogin - Starting...');
         const storedToken = await AsyncStorage.getItem("token");
         const storedUser = await AsyncStorage.getItem("user");
 
-        if (storedToken) {
+        if (storedToken && storedUser) {
+          console.log('CheckLogin - Found stored data');
           setToken(storedToken);
-
-          if (storedUser) {
-            // Use stored user data first for faster loading
-            const parsedUser = JSON.parse(storedUser);
-            setUser(parsedUser);
-            console.log("Loaded user from storage:", parsedUser.image);
-          }
-
-          // Then fetch fresh data from server
+          const parsedUser = JSON.parse(storedUser);
+          console.log('CheckLogin - Parsed user:', parsedUser);
+          setUser(parsedUser);
+          
+          // Fetch fresh data from server
           try {
             const userData = await api.getUserData(storedToken);
-            console.log("Fresh user data from server:", userData.image);
+            console.log('CheckLogin - Fresh user data:', userData);
             setUser(userData);
-            // Update stored user data
             await AsyncStorage.setItem("user", JSON.stringify(userData));
           } catch (error) {
             console.error("Error fetching fresh user data:", error);
-            // If server fetch fails, keep using stored data
           }
         }
       } catch (error) {
@@ -92,19 +89,36 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     checkLogin();
   }, []);
 
+  // Función para redirigir según el tipo de cuenta
+  const redirectToAppropriateTab = (accountType: string) => {
+    console.log('Redirecting user with account type:', accountType);
+    try {
+      if (accountType === 'business') {
+        console.log('Redirecting to business tabs');
+        router.replace('/(business-tabs)/hosting');
+      } else {
+        console.log('Redirecting to user tabs');
+        router.replace('/(tabs)/collection');
+      }
+    } catch (error) {
+      console.error('Error in redirectToAppropriateTab:', error);
+      // Fallback navigation
+      if (accountType === 'business') {
+        router.push('/(business-tabs)/hosting');
+      } else {
+        router.push('/(tabs)/collection');
+      }
+    }
+  };
+
   const fetchUser = async () => {
     try {
       const storedToken = await AsyncStorage.getItem("token");
       if (storedToken) {
-        console.log("Fetching user data from server...");
         const userData = await api.getUserData(storedToken);
-
-        // Agrega un parámetro de caché único para forzar la actualización
         if (userData.image) {
           userData.image = `${userData.image}?v=${Date.now()}`;
         }
-
-        console.log("Fetched user data:", userData.image);
         setUser(userData);
         await AsyncStorage.setItem("user", JSON.stringify(userData));
       }
@@ -114,20 +128,34 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   const refreshUser = async () => {
-    // Force refresh user data from server
-    console.log("Refreshing user data...");
     await fetchUser();
   };
 
   const handleAuth = async (auth: any) => {
     try {
+      console.log('HandleAuth - Received user type:', auth.user.accountType);
       await AsyncStorage.setItem("token", auth.token);
       await AsyncStorage.setItem("user", JSON.stringify(auth.user));
       setToken(auth.token);
       setUser(auth.user);
-      router.replace("/(tabs)/profile");
+
+      // Forzar fetch para asegurar datos frescos
+      const freshUserData = await api.getUserData(auth.token);
+      console.log('Fresh user data from API:', freshUserData);
+      setUser(freshUserData);
+      await AsyncStorage.setItem("user", JSON.stringify(freshUserData));
+
+      // Redirigir según el tipo de cuenta
+      if (freshUserData.accountType === 'business') {
+        console.log('Redirecting to business hosting');
+        router.replace('/(business-tabs)/hosting');
+      } else {
+        console.log('Redirecting to user collection');
+        router.replace('/(tabs)/collection');
+      }
     } catch (error) {
       console.error("Error in handleAuth:", error);
+      throw error;
     }
   };
 
@@ -147,7 +175,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         userData.name,
         userData.email,
         userData.mobile,
-        userData.password
+        userData.password,
+        userData.accountType || 'user'
       );
       await handleAuth(auth);
     } catch (error) {
@@ -161,7 +190,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       await AsyncStorage.clear();
       setUser(null);
       setToken(null);
-      router.replace("/userauth/Login");
+      router.replace("/");
     } catch (error) {
       console.error("Logout error:", error);
     }
@@ -169,14 +198,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const updateUserContext = async (userData: User) => {
     try {
-      console.log("Updating user context with:", userData.image);
       setUser(userData);
       await AsyncStorage.setItem("user", JSON.stringify(userData));
-      console.log("User context updated with new data");
     } catch (error) {
       console.error("Error updating user context:", error);
     }
   };
+
+  console.log('BusinessLayout - user:', user, 'loading:', loading);
 
   return (
     <AuthContext.Provider

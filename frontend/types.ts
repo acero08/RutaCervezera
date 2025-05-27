@@ -1,4 +1,3 @@
-
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 export type RootStackParamList = {
@@ -16,6 +15,7 @@ export type RegisterData = {
   email: string;
   mobile: string;
   password: string;
+  accountType?: 'user' | 'business';
 };
 
 export type AuthContextType = {
