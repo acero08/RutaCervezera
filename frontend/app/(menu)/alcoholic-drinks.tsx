@@ -1,9 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Image, TextInput, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
+  TextInput,
+  Alert,
+  Modal,
+  Pressable
+} from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../context/AuthContext';
 import ApiService from '../../services/ApiService';
+import { useNavigation } from '@react-navigation/native';
 
 interface DrinkItem {
   _id?: string;
@@ -28,10 +40,12 @@ export default function AlcoholicDrinksScreen() {
     isAlcoholic: true,
     alcoholPercentage: 0,
     volume: 0,
-    category: 'cerveza'
+    category: 'cerveza',
   });
+
   const { token } = useAuth();
   const api = ApiService.getInstance();
+  const navigation = useNavigation();
 
   useEffect(() => {
     loadDrinks();
@@ -46,6 +60,18 @@ export default function AlcoholicDrinksScreen() {
     } catch (error) {
       console.error('Error loading drinks:', error);
       Alert.alert('Error', 'No se pudieron cargar las bebidas');
+    }
+  };
+
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setSelectedImage({ uri: result.assets[0].uri });
     }
   };
 
@@ -64,17 +90,16 @@ export default function AlcoholicDrinksScreen() {
         formData.append('image', {
           uri: selectedImage.uri,
           type: 'image/jpeg',
-          name: 'drink_image.jpg'
+          name: 'drink.jpg',
         } as any);
       }
 
       const response = await api.createDrinkItem(formData);
-      
+
       if (response.success) {
-        Alert.alert('Éxito', 'Bebida alcohólica creada correctamente');
+        Alert.alert('Éxito', 'Bebida creada correctamente');
         setModalVisible(false);
-        loadDrinks(); // Recargar la lista
-        // Limpiar el formulario
+        setSelectedImage(null);
         setNewItem({
           name: '',
           description: '',
@@ -82,9 +107,9 @@ export default function AlcoholicDrinksScreen() {
           isAlcoholic: true,
           alcoholPercentage: 0,
           volume: 0,
-          category: 'cerveza'
+          category: 'cerveza',
         });
-        setSelectedImage(null);
+        loadDrinks();
       }
     } catch (error) {
       console.error('Error al crear bebida:', error);
@@ -95,10 +120,13 @@ export default function AlcoholicDrinksScreen() {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <MaterialIcons name="arrow-back" size={28} color="#FFA500" />
+        </TouchableOpacity>
         <Text style={styles.title}>Bebidas Alcohólicas</Text>
         <TouchableOpacity style={styles.addButton} onPress={() => setModalVisible(true)}>
           <MaterialIcons name="add" size={24} color="white" />
-          <Text style={styles.addButtonText}>Agregar Bebida</Text>
+          <Text style={styles.addButtonText}>Agregar</Text>
         </TouchableOpacity>
       </View>
 
@@ -119,12 +147,84 @@ export default function AlcoholicDrinksScreen() {
                 {drink.alcoholPercentage}% - {drink.volume}ml
               </Text>
             </View>
-            <TouchableOpacity style={styles.editButton}>
-              <MaterialIcons name="edit" size={24} color="#FFA500" />
-            </TouchableOpacity>
           </View>
         ))}
       </View>
+
+      {/* Modal con nuevo estilo */}
+      <Modal visible={modalVisible} animationType="slide" transparent={true}>
+        <View style={styles.modalBackground}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Nueva Bebida Alcohólica</Text>
+
+            <TextInput
+              placeholder="Nombre"
+              placeholderTextColor="#888"
+              style={styles.input}
+              value={newItem.name}
+              onChangeText={(text) => setNewItem({ ...newItem, name: text })}
+            />
+
+            <TextInput
+              placeholder="Descripción"
+              placeholderTextColor="#888"
+              style={styles.input}
+              value={newItem.description}
+              onChangeText={(text) => setNewItem({ ...newItem, description: text })}
+            />
+
+            <TextInput
+              placeholder="Precio (ej. 25.50)"
+              placeholderTextColor="#888"
+              style={styles.input}
+              keyboardType="decimal-pad"
+              value={newItem.price ? newItem.price.toString() : ''}
+              onChangeText={(text) => setNewItem({ ...newItem, price: parseFloat(text) || 0 })}
+            />
+
+            <TextInput
+              placeholder="Porcentaje de alcohol (ej. 4.5)"
+              placeholderTextColor="#888"
+              style={styles.input}
+              keyboardType="decimal-pad"
+              value={newItem.alcoholPercentage ? newItem.alcoholPercentage.toString() : ''}
+              onChangeText={(text) => setNewItem({ ...newItem, alcoholPercentage: parseFloat(text) || 0 })}
+            />
+
+            <TextInput
+              placeholder="Volumen en ml (ej. 355)"
+              placeholderTextColor="#888"
+              style={styles.input}
+              keyboardType="decimal-pad"
+              value={newItem.volume ? newItem.volume.toString() : ''}
+              onChangeText={(text) => setNewItem({ ...newItem, volume: parseFloat(text) || 0 })}
+            />
+
+            <TextInput
+              placeholder="Categoría (ej. cerveza)"
+              placeholderTextColor="#888"
+              style={styles.input}
+              value={newItem.category}
+              onChangeText={(text) => setNewItem({ ...newItem, category: text })}
+            />
+
+            <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
+              <MaterialIcons name="photo-library" size={24} color="white" />
+              <Text style={{ color: 'white', marginLeft: 5 }}>Seleccionar Imagen</Text>
+            </TouchableOpacity>
+            {selectedImage && <Image source={{ uri: selectedImage.uri }} style={{ width: 100, height: 100, marginTop: 10 }} />}
+
+            <View style={styles.modalActions}>
+              <Pressable style={styles.cancelButton} onPress={() => setModalVisible(false)}>
+                <Text style={{ color: '#fff' }}>Cancelar</Text>
+              </Pressable>
+              <Pressable style={styles.saveButton} onPress={handleAddDrink}>
+                <Text style={{ color: '#fff' }}>Guardar</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -137,20 +237,20 @@ const styles = StyleSheet.create({
   header: {
     padding: 20,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
     color: 'white',
+    fontWeight: 'bold',
   },
   addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: '#FFA500',
     padding: 10,
     borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   addButtonText: {
     color: 'white',
@@ -163,7 +263,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: '#1E1E1E',
     padding: 15,
-    borderRadius: 12,
+    borderRadius: 10,
     marginBottom: 10,
     alignItems: 'center',
   },
@@ -181,8 +281,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   drinkInfo: {
-    flex: 1,
     marginLeft: 15,
+    flex: 1,
   },
   drinkName: {
     color: 'white',
@@ -195,11 +295,57 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   drinkDetails: {
-    color: '#999',
+    color: '#aaa',
     fontSize: 12,
-    marginTop: 2,
   },
-  editButton: {
+  // Nuevos estilos del modal
+  modalBackground: {
+    flex: 1,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    padding: 20,
+  },
+  modalContainer: {
+    backgroundColor: '#1E1E1E',
+    borderRadius: 10,
+    padding: 20,
+  },
+  modalTitle: {
+    color: 'white',
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  input: {
+    backgroundColor: '#2A2A2A',
+    color: 'white',
     padding: 10,
+    borderRadius: 8,
+    marginBottom: 10,
   },
-}); 
+  imagePicker: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFA500',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 15,
+  },
+  cancelButton: {
+    backgroundColor: '#555',
+    padding: 10,
+    borderRadius: 8,
+    marginRight: 10,
+  },
+  saveButton: {
+    backgroundColor: '#FFA500',
+    padding: 10,
+    borderRadius: 8,
+  },
+});

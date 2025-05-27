@@ -17,6 +17,9 @@ export default function RootLayout() {
         <Stack.Screen name="userauth/AdminRegister" options={{ headerShown: false }} />
         <Stack.Screen name="userauth/EditProfile" options={{ headerShown: false }} />
         <Stack.Screen name="events/[eventId]" options={{ headerShown: false }} />
+        <Stack.Screen name="(menu)/alcoholic-drinks" options={{ headerShown: false }} />
+        <Stack.Screen name="(menu)/drinks" options={{ headerShown: false }} />
+        <Stack.Screen name="(menu)/food" options={{ headerShown: false }} />
       </Stack>
     </AuthProvider>
   );

@@ -281,29 +281,22 @@ export default function BusinessScreen() {
         </View>
       </View>
 
-      {/* Menu Management */}
-      <View style={styles.menuContainer}>
-        <Text style={styles.sectionTitle}>Gestión del Menú</Text>
-        
+      {/* Menu Section */}
+      <View style={styles.menuSection}>
         <MenuSection
-          title="Bebidas Alcohólicas"
-          icon="local-bar"
-          items={0}
-          onPress={() => router.push('/(menu)/alcoholic-drinks' as any)}
+          title="Configuración del Bar"
+          icon="settings"
+          onPress={() => router.push('/(business-tabs)/preview')}
         />
-        
+        <MenuSection
+          title="Menú"
+          icon="restaurant-menu"
+          onPress={() => router.push('/(menu)/food')}
+        />
         <MenuSection
           title="Bebidas"
-          icon="local-cafe"
-          items={0}
-          onPress={() => router.push('/(menu)/drinks' as any)}
-        />
-        
-        <MenuSection
-          title="Alimentos"
-          icon="restaurant"
-          items={0}
-          onPress={() => router.push('/(menu)/food' as any)}
+          icon="local-bar"
+          onPress={() => router.push('/(menu)/drinks')}
         />
       </View>
 
@@ -428,7 +421,7 @@ const styles = StyleSheet.create({
   editIcon: {
     marginLeft: 8,
   },
-  menuContainer: {
+  menuSection: {
     padding: 20,
   },
   sectionTitle: {
