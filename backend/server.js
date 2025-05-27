@@ -75,6 +75,326 @@ if (!fs.existsSync(uploadsDir)) {
 
 ////********************************************////
 
+//USUARIO BAR//
+////********************************************////
+
+// Obtener el bar actual del usuario
+app.get("/api/bars/current", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        success: false,
+        message: "Token requerido"
+      });
+    }
+
+    const token = authHeader.split(' ')[1];
+    console.log("Token received:", token);
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+    console.log("Decoded token:", decoded);
+
+    const user = await User.findById(decoded.userId);
+    console.log("User found:", user?._id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Usuario no encontrado"
+      });
+    }
+
+    // Verificar si el usuario tiene un bar asignado
+    if (!user.managedBars || user.managedBars.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No tienes un bar asignado"
+      });
+    }
+
+    // Obtener el primer bar gestionado por el usuario
+    const bar = await Bar.findById(user.managedBars[0]);
+    console.log("Bar found:", bar?._id);
+
+    if (!bar) {
+      return res.status(404).json({
+        success: false,
+        message: "Bar no encontrado"
+      });
+    }
+
+    // Procesar las URLs de las imágenes
+    const processedBar = {
+      ...bar.toObject(),
+      profileImage: bar.profileImage ? `http://localhost:3000${bar.profileImage}` : null,
+      coverImage: bar.coverImage ? `http://localhost:3000${bar.coverImage}` : null
+    };
+
+    res.status(200).json({
+      success: true,
+      data: processedBar
+    });
+
+  } catch (error) {
+    console.error("Error obteniendo bar actual:", error);
+
+    // Mejorar el manejo de errores
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({
+        success: false,
+        message: "Token inválido"
+      });
+    }
+
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        success: false,
+        message: "ID inválido"
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Error en el servidor",
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Error interno del servidor'
+    });
+  }
+});
+
+// Actualizar el bar actual del usuario
+app.put("/api/bars/current", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        success: false,
+        message: "Token requerido"
+      });
+    }
+
+    const token = authHeader.split(' ')[1];
+    console.log("Token received:", token);
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+    console.log("Decoded token:", decoded);
+
+    const user = await User.findById(decoded.userId);
+    console.log("User found:", user?._id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Usuario no encontrado"
+      });
+    }
+
+    // Verificar si el usuario tiene un bar asignado
+    if (!user.managedBars || user.managedBars.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No tienes un bar asignado"
+      });
+    }
+
+    // Obtener el primer bar gestionado por el usuario
+    const bar = await Bar.findById(user.managedBars[0]);
+    console.log("Bar found:", bar?._id);
+
+    if (!bar) {
+      return res.status(404).json({
+        success: false,
+        message: "Bar no encontrado"
+      });
+    }
+
+    // Validar los datos de entrada
+    const { name, description, phone, email, website } = req.body;
+
+    // Validaciones básicas
+    if (name && name.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "El nombre no puede estar vacío"
+      });
+    }
+
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Email inválido"
+      });
+    }
+
+    // Actualizar los campos permitidos
+    const allowedFields = ['name', 'description', 'phone', 'email', 'website'];
+    allowedFields.forEach(field => {
+      if (req.body[field] !== undefined) {
+        bar[field] = req.body[field];
+      }
+    });
+
+    await bar.save();
+    console.log("Bar updated successfully");
+
+    // Procesar las URLs de las imágenes para la respuesta
+    const processedBar = {
+      ...bar.toObject(),
+      profileImage: bar.profileImage ? `http://localhost:3000${bar.profileImage}` : null,
+      coverImage: bar.coverImage ? `http://localhost:3000${bar.coverImage}` : null
+    };
+
+    res.status(200).json({
+      success: true,
+      data: processedBar
+    });
+
+  } catch (error) {
+    console.error("Error actualizando bar actual:", error);
+
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({
+        success: false,
+        message: "Token inválido"
+      });
+    }
+
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: "Datos inválidos",
+        details: Object.values(error.errors).map(err => err.message)
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Error en el servidor",
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Error interno del servidor'
+    });
+  }
+});
+
+// Actualizar imagen del bar actual (profile o cover)
+app.put("/api/bars/current/image/:type", upload.single('image'), async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const { type } = req.params;
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        success: false,
+        message: "Token requerido"
+      });
+    }
+
+    const token = authHeader.split(' ')[1];
+    console.log("Token received:", token);
+
+    if (!['profile', 'cover'].includes(type)) {
+      return res.status(400).json({
+        success: false,
+        message: "Tipo de imagen inválido. Debe ser 'profile' o 'cover'"
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "No se proporcionó ninguna imagen"
+      });
+    }
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+    console.log("Decoded token:", decoded);
+
+    const user = await User.findById(decoded.userId);
+    console.log("User found:", user?._id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Usuario no encontrado"
+      });
+    }
+
+    // Verificar si el usuario tiene un bar asignado
+    if (!user.managedBars || user.managedBars.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No tienes un bar asignado"
+      });
+    }
+
+    // Obtener el primer bar gestionado por el usuario
+    const bar = await Bar.findById(user.managedBars[0]);
+    console.log("Bar found:", bar?._id);
+
+    if (!bar) {
+      return res.status(404).json({
+        success: false,
+        message: "Bar no encontrado"
+      });
+    }
+
+    // Eliminar imagen anterior si existe
+    const oldImage = type === 'profile' ? bar.profileImage : bar.coverImage;
+    if (oldImage) {
+      // Remover el prefijo http://localhost:3000 si existe
+      const cleanPath = oldImage.replace('http://localhost:3000', '');
+      const oldImagePath = path.join(__dirname, 'public', cleanPath);
+
+      if (fs.existsSync(oldImagePath)) {
+        try {
+          fs.unlinkSync(oldImagePath);
+          console.log("Old image deleted:", oldImagePath);
+        } catch (deleteError) {
+          console.error("Error deleting old image:", deleteError);
+        }
+      }
+    }
+
+    // Guardar nueva imagen (solo el path relativo)
+    const imagePath = `/uploads/${req.file.filename}`;
+    if (type === 'profile') {
+      bar.profileImage = imagePath;
+    } else {
+      bar.coverImage = imagePath;
+    }
+
+    await bar.save();
+    console.log("Bar image updated successfully");
+
+    res.status(200).json({
+      success: true,
+      data: {
+        [type === 'profile' ? 'profileImage' : 'coverImage']: `http://localhost:3000${imagePath}`
+      }
+    });
+
+  } catch (error) {
+    console.error("Error actualizando imagen del bar:", error);
+
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({
+        success: false,
+        message: "Token inválido"
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Error en el servidor",
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Error interno del servidor'
+    });
+  }
+});
+
+
+
+
+////********************************************////
+
 //ADMIN//
 ////********************************************////
 
