@@ -19,6 +19,10 @@ tags:
     description: Gestión de comentarios
   - name: YELP
     description: Cosas de api yelp
+  - name: Events
+    description: Operaciones con eventos
+  - name: Business
+    description: Operaciones de gestión de negocio
 
 paths:
   # Users endpoints (existing)
@@ -490,277 +494,153 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
-  # Menu Items Endpoints
+  # Menu Management Endpoints
   /api/bars/{barId}/menu:
     post:
       tags: [Items]
-      summary: Crear nuevo ítem en el menú
-      consumes:
-        - multipart/form-data
+      summary: Create a new menu item
       parameters:
         - in: path
           name: barId
           required: true
           schema:
             type: string
-          example: 5f8d04b3ab34567890abcdef
       requestBody:
+        required: true
         content:
           multipart/form-data:
             schema:
               type: object
               properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                price:
+                  type: number
                 itemType:
                   type: string
                   enum: [food, drink]
-                  example: food
-                name:
-                  type: string
-                  example: "Hamburguesa clásica"
-                description:
-                  type: string
-                  example: "Carne 200g con queso cheddar"
-                price:
-                  type: number
-                  example: 12.99
                 image:
                   type: string
                   format: binary
-                # Food specific
                 isVegetarian:
                   type: boolean
-                  example: false
                 calories:
-                  type: integer
-                  example: 650
+                  type: number
                 category:
                   type: string
-                  example: plato_principal
-                # Drink specific
                 isAlcoholic:
                   type: boolean
-                  example: true
                 alcoholPercentage:
                   type: number
-                  example: 5.5
                 volume:
-                  type: integer
-                  example: 330
+                  type: number
                 servingTemperature:
                   type: string
-                  example: frio
-              required:
-                - itemType
-                - name
-                - description
-                - price
+                  enum: [frio, ambiente, caliente]
       responses:
         '201':
-          description: Ítem creado exitosamente
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  message:
-                    type: string
-                  data:
-                    oneOf:
-                      - $ref: '#/components/schemas/FoodItem'
-                      - $ref: '#/components/schemas/DrinkItem'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/ServerError'
+          description: Item created successfully
 
+  /api/bars/{barId}/alcoholic-drinks:
     get:
       tags: [Items]
-      summary: Obtener menú de un bar
+      summary: Get alcoholic drinks for a bar
       parameters:
         - in: path
           name: barId
           required: true
           schema:
             type: string
-          example: 5f8d04b3ab34567890abcdef
-        - in: query
-          name: type
-          schema:
-            type: string
-            enum: [food, drink]
-        - in: query
-          name: page
-          schema:
-            type: integer
-            minimum: 1
-        - in: query
-          name: limit
-          schema:
-            type: integer
-            minimum: 1
       responses:
         '200':
-          description: Menú obtenido exitosamente
+          description: Alcoholic drinks retrieved successfully
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    type: object
-                    properties:
-                      food:
-                        type: array
-                        items:
-                          $ref: '#/components/schemas/FoodItem'
-                      drink:
-                        type: array
-                        items:
-                          $ref: '#/components/schemas/DrinkItem'
-                  pagination:
-                    type: object
-                    properties:
-                      page:
-                        type: integer
-                      limit:
-                        type: integer
-                      total:
-                        type: integer
-                      pages:
-                        type: integer
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/ServerError'
+                type: array
+                items:
+                  $ref: '#/components/schemas/DrinkItem'
 
+  /api/bars/{barId}/food:
+    get:
+      tags: [Items]
+      summary: Get food items for a bar
+      parameters:
+        - in: path
+          name: barId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Food items retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FoodItem'
+
+  /api/bars/{barId}/drinks:
+    get:
+      tags: [Items]
+      summary: Get non-alcoholic drinks for a bar
+      parameters:
+        - in: path
+          name: barId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Non-alcoholic drinks retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DrinkItem'
+
+  # Menu Items Endpoints
   /api/menu/{itemId}:
     get:
       tags: [Items]
-      summary: Obtener ítem por ID
+      summary: Get menu item by ID
       parameters:
         - in: path
           name: itemId
           required: true
           schema:
             type: string
-          example: 5f8d04b3ab34567890abcdef
       responses:
         '200':
-          description: Ítem obtenido exitosamente
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    oneOf:
-                      - $ref: '#/components/schemas/FoodItem'
-                      - $ref: '#/components/schemas/DrinkItem'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/ServerError'
-
+          description: Menu item retrieved successfully
     put:
       tags: [Items]
-      summary: Actualizar ítem del menú
-      consumes:
-        - multipart/form-data
+      summary: Update menu item
       parameters:
         - in: path
           name: itemId
           required: true
           schema:
             type: string
-          example: 5f8d04b3ab34567890abcdef
-      requestBody:
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                name:
-                  type: string
-                description:
-                  type: string
-                price:
-                  type: number
-                image:
-                  type: string
-                  format: binary
-                isAvailable:
-                  type: boolean
-                # Food specific
-                isVegetarian:
-                  type: boolean
-                calories:
-                  type: integer
-                category:
-                  type: string
-                # Drink specific
-                isAlcoholic:
-                  type: boolean
-                alcoholPercentage:
-                  type: number
-                volume:
-                  type: integer
-                servingTemperature:
-                  type: string
       responses:
         '200':
-          description: Ítem actualizado
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  message:
-                    type: string
-                  data:
-                    oneOf:
-                      - $ref: '#/components/schemas/FoodItem'
-                      - $ref: '#/components/schemas/DrinkItem'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/ServerError'
-
+          description: Menu item updated successfully
     delete:
       tags: [Items]
-      summary: Eliminar ítem del menú
+      summary: Delete menu item
       parameters:
         - in: path
           name: itemId
           required: true
           schema:
             type: string
-          example: 5f8d04b3ab34567890abcdef
       responses:
         '200':
-          description: Ítem eliminado
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  message:
-                    type: string
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/ServerError'
+          description: Menu item deleted successfully
 
   /api/bars/{barId}/menu/search:
     get:
@@ -1348,6 +1228,379 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
+  /api/bars/current:
+    get:
+      tags: [Bars]
+      summary: Get current user's bar
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Current bar retrieved successfully
+    put:
+      tags: [Bars]
+      summary: Update current bar
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Bar updated successfully
+
+  /api/bars/current/image/{type}:
+    put:
+      tags: [Bars]
+      summary: Update bar image
+      parameters:
+        - in: path
+          name: type
+          required: true
+          schema:
+            type: string
+            enum: [profile, cover]
+      security:
+        - BearerAuth: []
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Image updated successfully
+
+  /api/promote-to-business:
+    put:
+      tags: [Users]
+      summary: Promote user to business owner
+      security:
+        - BearerAuth: []
+
+  /api/my-bars:
+    get:
+      tags: [Bars]
+      summary: Get bars managed by current user
+      security:
+        - BearerAuth: []
+
+  # Events Endpoints
+  /api/events:
+    get:
+      tags: [Events]
+      summary: Get all events
+      parameters:
+        - in: query
+          name: range
+          schema:
+            type: string
+            enum: [today, week, month]
+
+  /api/bars/{barId}/new-event:
+    post:
+      tags: [Events]
+      summary: Create new event for a bar
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: barId
+          required: true
+          schema:
+            type: string
+
+  /api/bars/{barId}/events/{eventId}:
+    put:
+      tags: [Events]
+      summary: Update an event
+      security:
+        - BearerAuth: []
+
+    delete:
+      tags: [Events]
+      summary: Delete an event
+      security:
+        - BearerAuth: []
+
+  # Business Endpoints
+  /api/business/bar/{barId}/stats:
+    get:
+      tags: [Business]
+      summary: Get bar statistics
+      security:
+        - BearerAuth: []
+
+  /api/business/bar/{barId}/photos:
+    post:
+      tags: [Business]
+      summary: Upload bar photos
+      security:
+        - BearerAuth: []
+
+  /api/business/bar/{barId}/photos/{photoId}:
+    delete:
+      tags: [Business]
+      summary: Delete bar photo
+      security:
+        - BearerAuth: []
+
+  # User Management
+  /api/users:
+    get:
+      tags: [Users]
+      summary: Get all users
+      responses:
+        '200':
+          description: Users retrieved successfully
+
+  /api/register:
+    post:
+      tags: [Users]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserDetail'
+      responses:
+        '201':
+          description: User registered successfully
+
+  /api/login:
+    post:
+      tags: [Users]
+      summary: User login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login successful
+
+  # Additional Bar Management Endpoints
+  /api/create-bar:
+    post:
+      tags: [Bars]
+      summary: Create a new bar
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                address:
+                  type: string
+                city:
+                  type: string
+                images:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+      responses:
+        '201':
+          description: Bar created successfully
+
+  /api/my-bars:
+    get:
+      tags: [Bars]
+      summary: Get bars managed by current user
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Managed bars retrieved successfully
+
+  /api/update-bar/{barId}:
+    put:
+      tags: [Bars]
+      summary: Update a bar
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: barId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Bar updated successfully
+
+  /api/delete-bar/{barId}:
+    delete:
+      tags: [Bars]
+      summary: Delete a bar
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: barId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Bar deleted successfully
+
+  /api/bar-stats/{barId}:
+    get:
+      tags: [Business]
+      summary: Get bar statistics
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: barId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Bar statistics retrieved successfully
+
+  # Additional Review Management
+  /api/reviews/{reviewId}:
+    put:
+      tags: [Reviews]
+      summary: Update a review
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: reviewId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Review updated successfully
+    delete:
+      tags: [Reviews]
+      summary: Delete a review
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: reviewId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Review deleted successfully
+
+  # Favorites Endpoints
+  /api/users/{userId}/favorites/{barId}:
+    post:
+      tags: [Users]
+      summary: Add/Remove bar from favorites
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: barId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Favorite status updated successfully
+
+  /api/users/{userId}/favorites:
+    get:
+      tags: [Users]
+      summary: Get user's favorite bars
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of favorite bars retrieved successfully
+
+  # Additional Events Endpoints
+  /api/bars/{barId}/events:
+    get:
+      tags: [Events]
+      summary: Get events for a specific bar
+      parameters:
+        - in: path
+          name: barId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: range
+          schema:
+            type: string
+            enum: [today, week, month, all]
+      responses:
+        '200':
+          description: Events retrieved successfully
+
+  # Additional Upvotes Endpoints
+  /api/upvotes:
+    post:
+      tags: [Upvotes]
+      summary: Toggle upvote for a bar
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_id:
+                  type: string
+                place_id:
+                  type: string
+              required:
+                - user_id
+                - place_id
+      responses:
+        '200':
+          description: Upvote toggled successfully
+
+  /api/upvotes/{place_id}/count:
+    get:
+      tags: [Upvotes]
+      summary: Get upvote count for a bar
+      parameters:
+        - in: path
+          name: place_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Upvote count retrieved successfully
+
 components:
   responses:
     Forbidden:
@@ -1402,64 +1655,129 @@ components:
       properties:
         _id:
           type: string
-          example: 5f8d04b3ab34567890abcdef
         name:
           type: string
-          example: "El Bar Ejemplar"
+          required: true
+        description:
+          type: string
+        profileImage:
+          type: string
+        coverImage:
+          type: string
         address:
           type: string
-          example: "Calle Falsa 123"
-        phonenumber:
+          required: true
+        city:
           type: string
-          example: "+34 600 123 456"
-        rating:
+          required: true
+        phone:
+          type: string
+        email:
+          type: string
+        website:
+          type: string
+        openingHours:
+          type: object
+          properties:
+            monday:
+              $ref: '#/components/schemas/DaySchedule'
+            tuesday:
+              $ref: '#/components/schemas/DaySchedule'
+            wednesday:
+              $ref: '#/components/schemas/DaySchedule'
+            thursday:
+              $ref: '#/components/schemas/DaySchedule'
+            friday:
+              $ref: '#/components/schemas/DaySchedule'
+            saturday:
+              $ref: '#/components/schemas/DaySchedule'
+            sunday:
+              $ref: '#/components/schemas/DaySchedule'
+        priceRange:
+          type: string
+          enum: [low, medium, high, luxury]
+          default: medium
+        category:
+          type: string
+          enum: [bar, pub, cocktail_bar, sports_bar, lounge, nightclub, restaurant_bar]
+          default: bar
+        specialties:
+          type: array
+          items:
+            type: string
+        images:
+          type: array
+          items:
+            type: string
+        owner:
+          type: string
+          format: objectId
+          description: Reference to UserDetail
+        isActive:
+          type: boolean
+          default: true
+        averageRating:
           type: number
-          minimum: 1
+          minimum: 0
           maximum: 5
-          example: 4.5
-        image:
-          type: string
-          example: "http://example.com/bar.jpg"
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-      required:
-        - name
-        - address
-        - phonenumber
-        - rating
+          default: 0
+        reviewCount:
+          type: number
+          default: 0
+        viewCount:
+          type: number
+          default: 0
+        location:
+          type: object
+          properties:
+            type:
+              type: string
+              enum: [Point]
+              default: Point
+            coordinates:
+              type: array
+              items:
+                type: number
+              minItems: 2
+              maxItems: 2
+        amenities:
+          type: array
+          items:
+            type: string
+            enum: [wifi, parking, outdoor_seating, live_music, karaoke, pool_table, darts, sports_tv, food_service, happy_hour, vip_area, accessibility, smoking_area, dance_floor]
 
     BaseItem:
       type: object
       properties:
         _id:
           type: string
-          example: 5f8d04b3ab34567890abcdef
         bar:
-          $ref: "#/components/schemas/Bar"
+          type: string
+          format: objectId
+          required: true
         name:
           type: string
-          example: "Producto base"
+          required: true
         description:
           type: string
-          example: "Descripción del producto"
+          required: true
         price:
           type: number
           minimum: 0
-          example: 10.99
+          required: true
         image:
           type: string
-          example: "http://example.com/product.jpg"
         isAvailable:
           type: boolean
-          example: true
+          default: true
+        createdBy:
+          type: string
+          format: objectId
+          required: true
+          description: Reference to UserDetail
         itemType:
           type: string
-          enum: [DrinkItem, FoodItem]
-          example: DrinkItem
+          enum: [FoodItem, DrinkItem]
         createdAt:
           type: string
           format: date-time
@@ -1471,6 +1789,7 @@ components:
         - name
         - description
         - price
+        - createdBy
 
     DrinkItem:
       allOf:
@@ -1632,33 +1951,110 @@ components:
       properties:
         _id:
           type: string
-          example: 5f8d04b3ab34567890abcdef
         name:
           type: string
-          example: "Juan Pérez"
         email:
           type: string
-          format: email
-          example: "juan@example.com"
         mobile:
           type: string
-          example: "+34 600 123 456"
+        password:
+          type: string
         image:
           type: string
-          example: "http://example.com/avatar.jpg"
         gender:
           type: string
-          example: "masculino"
-        createdAt:
+        accountType:
           type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
+        enum: [user, business, admin]
+        default: user
+        favorites:
+          type: array
+          items:
+            type: string
+            format: objectId
+        managedBars:
+          type: array
+          items:
+            type: string
+            format: objectId
+        permissions:
+          type: object
+          properties:
+            canCreateBars:
+              type: boolean
+            canManageAllBars:
+              type: boolean
+            canManageUsers:
+              type: boolean
+            canManageMenu:
+              type: boolean
+            canManageEvents:
+              type: boolean
+            canManagePhotos:
+              type: boolean
+        businessInfo:
+          type: object
+          properties:
+            businessName:
+              type: string
+            businessDescription:
+              type: string
+            businessLicense:
+              type: string
+            verificationStatus:
+              type: string
+            enum: [pending, verified, rejected]
+            default: pending
+            verificationDate:
+              type: string
+              format: date-time
       required:
         - name
         - email
         - password
+
+    DaySchedule:
+      type: object
+      properties:
+        open:
+          type: string
+        close:
+          type: string
+        closed:
+          type: boolean
+          default: false
+
+    Event:
+      type: object
+      properties:
+        _id:
+          type: string
+        bar:
+          type: string
+          format: objectId
+          required: true
+        title:
+          type: string
+          required: true
+        description:
+          type: string
+          required: true
+        location:
+          type: string
+        date:
+          type: string
+          format: date-time
+          required: true
+        image:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - bar
+        - title
+        - description
+        - date
 
   securitySchemes:
     BearerAuth:
@@ -1756,7 +2152,6 @@ paths:
               properties:
                 email:
                   type: string
-                  format: email
                 password:
                   type: stringF
               required:
