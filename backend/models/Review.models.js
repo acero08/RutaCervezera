@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const ReviewSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "User",  // Cambiado de UserDetail a User
+    ref: "UserDetail",  
     required: true
   },
   bar: {

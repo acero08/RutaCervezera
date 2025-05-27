@@ -46,6 +46,45 @@ const BarDetails = () => {
   const { width } = Dimensions.get("window");
   const itemWidth = (width - 32) / 2;
 
+  // Utility functions that can be used by both components
+  const canEditReview = (review: any) => {
+    if (!user || !review || !review.user) {
+      console.log("Missing user or review data");
+      return false;
+    }
+
+    // Obtener IDs para comparar
+    const currentUserId = user.id || user._id;
+    const reviewUserId = review.user._id || review.user.id;
+
+    console.log("Review permission check:", {
+      currentUserId,
+      reviewUserId,
+      canEdit: currentUserId === reviewUserId,
+    });
+
+    return currentUserId === reviewUserId;
+  };
+
+  const canEditComment = (comment: any) => {
+    if (!user || !comment || !comment.user) {
+      console.log("Missing user or comment data");
+      return false;
+    }
+
+    // Obtener IDs para comparar
+    const currentUserId = user.id || user._id;
+    const commentUserId = comment.user._id || comment.user.id;
+
+    console.log("Comment permission check:", {
+      currentUserId,
+      commentUserId,
+      canEdit: currentUserId === commentUserId,
+    });
+
+    return currentUserId === commentUserId;
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       if (!id) return;
@@ -95,6 +134,8 @@ const BarDetails = () => {
           }
         } catch (reviewError: any) {
           console.error("Error cargando reseñas:", reviewError);
+          setReviews([]);
+          setReviewsError(true);
 
           // Manejo más específico de errores
           if (reviewError.response?.status === 404) {
@@ -143,6 +184,10 @@ const BarDetails = () => {
       return;
     }
 
+    const commentsResponse = await authApi.getComments(review._id);
+
+    console.log("Comentarios recibidos:", commentsResponse);
+
     try {
       const commentsResponse = await authApi.getComments(review._id);
       console.log("Comments response:", commentsResponse);
@@ -153,25 +198,35 @@ const BarDetails = () => {
         ...review,
         comments: comments,
       });
+
+      // NUEVO: Actualizar también el review en la lista principal
+      setReviews((prevReviews) =>
+        prevReviews.map((r) =>
+          r._id === review._id
+            ? { ...r, comments: comments, commentCount: comments.length }
+            : r
+        )
+      );
+
       setShowCommentsModal(true);
     } catch (error: any) {
-      console.error("Error fetching comments:", error);
-
-      let errorMessage = "No se pudieron cargar los comentarios";
+      console.error("Error fetching comments:", error),
+        {
+          message: error.message,
+          stack: error.stack,
+          reviewId: review?._id,
+        };
 
       if (error.response?.status === 404) {
-        // No hay comentarios - no es un error
         setSelectedReview({
           ...review,
           comments: [],
         });
         setShowCommentsModal(true);
         return;
-      } else if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
       }
 
-      Alert.alert("Error", errorMessage);
+      Alert.alert("Error", error.message || "Error cargando comentarios");
     }
   };
 
@@ -345,7 +400,7 @@ const BarDetails = () => {
         <View style={styles.reviewHeader}>
           <Ionicons name="person-circle" size={24} color="#FFA500" />
           <Text style={styles.reviewAuthor}>
-            {review.user?.name || "Usuario"}
+            {review.user?.name || review.user?.username || "Usuario"}
           </Text>
           <View style={styles.reviewRating}>
             {[...Array(5)].map((_, i) => (
@@ -368,7 +423,7 @@ const BarDetails = () => {
             <Ionicons name="arrow-up" size={20} color="#FFA500" />
             <Text style={styles.upvoteCount}>{review.upvotes || 0}</Text>
           </TouchableOpacity>
-
+          {/*
           <TouchableOpacity
             style={styles.commentButton}
             onPress={() => handleViewComments(review)}
@@ -376,27 +431,28 @@ const BarDetails = () => {
             <Ionicons name="chatbubbles" size={18} color="#FFA500" />
             <Text style={styles.commentCount}>{review.commentCount || 0}</Text>
           </TouchableOpacity>
+          */}
         </View>
 
-        {user &&
-          (user.id === review.user?._id || user._id === review.user?._id) && (
-            <View style={styles.reviewActions}>
-              <TouchableOpacity
-                onPress={() => {
-                  setRating(review.rating || 5);
-                  setReviewText(review.comment || "");
-                  setShowReviewModal(true);
-                }}
-              >
-                <Text style={styles.actionText}>Editar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleDeleteReview}>
-                <Text style={[styles.actionText, styles.deleteText]}>
-                  Eliminar
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
+        {/* Solo mostrar acciones de editar/eliminar al autor de la reseña */}
+        {canEditReview(review) && (
+          <View style={styles.reviewActions}>
+            <TouchableOpacity
+              onPress={() => {
+                setRating(review.rating || 5);
+                setReviewText(review.comment || "");
+                setShowReviewModal(true);
+              }}
+            >
+              <Text style={styles.actionText}>Editar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleDeleteReview}>
+              <Text style={[styles.actionText, styles.deleteText]}>
+                Eliminar
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     );
   };
@@ -595,20 +651,34 @@ const BarDetails = () => {
         review={selectedReview}
         onCommentSubmit={(comment) => {
           if (selectedReview) {
+            const newCommentObj = {
+              _id: Date.now().toString(),
+              content: comment,
+              user: user,
+              createdAt: new Date().toISOString(),
+            };
+
+            // Actualizar selectedReview
             setSelectedReview({
               ...selectedReview,
-              comments: [
-                ...(selectedReview.comments || []),
-                {
-                  _id: Date.now().toString(),
-                  content: comment,
-                  user: user,
-                  createdAt: new Date().toISOString(),
-                },
-              ],
+              comments: [newCommentObj, ...(selectedReview.comments || [])],
             });
+
+            // NUEVO: Actualizar también el review en la lista principal
+            setReviews((prevReviews) =>
+              prevReviews.map((r) =>
+                r._id === selectedReview._id
+                  ? {
+                      ...r,
+                      commentCount: (r.commentCount || 0) + 1,
+                      comments: [newCommentObj, ...(r.comments || [])],
+                    }
+                  : r
+              )
+            );
           }
         }}
+        canEditComment={canEditComment}
       />
     </ScrollView>
   );
@@ -961,24 +1031,76 @@ const styles = StyleSheet.create({
     textAlign: "center",
     padding: 16,
   },
+  commentHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  commentActions: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  commentActionButton: {
+    padding: 4,
+  },
+  editContainer: {
+    marginTop: 8,
+  },
+  editInput: {
+    backgroundColor: "#333",
+    color: "#FFF",
+    borderRadius: 8,
+    padding: 12,
+    minHeight: 80,
+    textAlignVertical: "top",
+    marginBottom: 8,
+  },
+  editActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 8,
+  },
+  editButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+
+  saveButton: {
+    backgroundColor: "#FFA500",
+  },
 });
 
 export default BarDetails;
+// Reemplaza la función CommentsModal completa (líneas 750-850 aproximadamente)
 
 const CommentsModal = ({
   visible,
   onClose,
   review,
   onCommentSubmit,
+  canEditComment,
 }: {
   visible: boolean;
   onClose: () => void;
   review: any;
   onCommentSubmit: (comment: string) => void;
+  canEditComment: (comment: any) => boolean;
 }) => {
   const [newComment, setNewComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [editingComment, setEditingComment] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+  const [comments, setComments] = useState<any[]>([]);
   const { user, token } = useAuth();
+
+  // Actualizar comentarios cuando cambie la review
+  useEffect(() => {
+    if (review?.comments) {
+      setComments(review.comments);
+    }
+  }, [review]);
 
   const handleSubmit = async () => {
     if (!token) {
@@ -991,33 +1113,105 @@ const CommentsModal = ({
       return;
     }
 
-    if (submitting) return; // Prevenir envíos múltiples
-
+    if (submitting) return;
     setSubmitting(true);
 
     try {
-      await ApiService.getInstance().postComment(
+      const response = await ApiService.getInstance().postComment(
         review?._id,
         token,
         newComment.trim()
       );
+
+      const newCommentObj = {
+        _id: response._id || Date.now().toString(),
+        content: newComment.trim(),
+        user: user,
+        createdAt: new Date().toISOString(),
+      };
+
+      setComments((prev) => [newCommentObj, ...prev]);
       onCommentSubmit(newComment.trim());
       setNewComment("");
     } catch (error: any) {
       console.error("Error posting comment:", error);
-
-      let errorMessage = "No se pudo enviar el comentario";
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      }
-
-      Alert.alert("Error", errorMessage);
+      Alert.alert("Error", error.message || "No se pudo enviar el comentario");
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Protección contra review null/undefined
+  const handleEditComment = async (commentId: string) => {
+    if (!token || !editText.trim()) {
+      Alert.alert("Error", "El comentario no puede estar vacío");
+      return;
+    }
+
+    try {
+      await ApiService.getInstance().editComment(
+        commentId,
+        token,
+        editText.trim()
+      );
+
+      setComments((prev) =>
+        prev.map((comment) =>
+          comment._id === commentId
+            ? { ...comment, content: editText.trim() }
+            : comment
+        )
+      );
+
+      setEditingComment(null);
+      setEditText("");
+      Alert.alert("Éxito", "Comentario actualizado");
+    } catch (error: any) {
+      console.error("Error editing comment:", error);
+      Alert.alert("Error", error.message || "No se pudo editar el comentario");
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!token) return;
+
+    Alert.alert(
+      "Confirmar eliminación",
+      "¿Estás seguro de que quieres eliminar este comentario?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Eliminar",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await ApiService.getInstance().deleteComment(commentId, token);
+              setComments((prev) =>
+                prev.filter((comment) => comment._id !== commentId)
+              );
+              Alert.alert("Éxito", "Comentario eliminado");
+            } catch (error: any) {
+              console.error("Error deleting comment:", error);
+              Alert.alert(
+                "Error",
+                error.message || "No se pudo eliminar el comentario"
+              );
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const startEdit = (comment: any) => {
+    setEditingComment(comment._id);
+    setEditText(comment.content || comment.text || "");
+  };
+
+  const cancelEdit = () => {
+    setEditingComment(null);
+    setEditText("");
+  };
+
   if (!visible || !review) {
     return null;
   }
@@ -1039,18 +1233,67 @@ const CommentsModal = ({
           </View>
 
           <ScrollView style={styles.commentsList}>
-            {review.comments && review.comments.length > 0 ? (
-              review.comments.map((comment: any) => (
+            {comments && comments.length > 0 ? (
+              comments.map((comment: any) => (
                 <View
                   key={comment._id || comment.id || Math.random()}
                   style={styles.commentItem}
                 >
-                  <Text style={styles.commentAuthor}>
-                    {comment.user?.name || "Usuario"}
-                  </Text>
-                  <Text style={styles.commentText}>
-                    {comment.content || comment.text || ""}
-                  </Text>
+                  <View style={styles.commentHeader}>
+                    <Text style={styles.commentAuthor}>
+                      {comment.user?.name ||
+                        comment.user?.username ||
+                        "Usuario"}
+                    </Text>
+                    {/* Solo mostrar acciones de editar/eliminar al autor del comentario */}
+                    {canEditComment(comment) && (
+                      <View style={styles.commentActions}>
+                        <TouchableOpacity
+                          onPress={() => startEdit(comment)}
+                          style={styles.commentActionButton}
+                        >
+                          <Ionicons name="pencil" size={16} color="#FFA500" />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => handleDeleteComment(comment._id)}
+                          style={styles.commentActionButton}
+                        >
+                          <Ionicons name="trash" size={16} color="#FF3B30" />
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+
+                  {editingComment === comment._id ? (
+                    <View style={styles.editContainer}>
+                      <TextInput
+                        style={styles.editInput}
+                        multiline
+                        value={editText}
+                        onChangeText={setEditText}
+                        placeholder="Editar comentario..."
+                        placeholderTextColor="#666"
+                      />
+                      <View style={styles.editActions}>
+                        <TouchableOpacity
+                          onPress={cancelEdit}
+                          style={[styles.editButton, styles.cancelButton]}
+                        >
+                          <Text style={styles.buttonText}>Cancelar</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => handleEditComment(comment._id)}
+                          style={[styles.editButton, styles.saveButton]}
+                        >
+                          <Text style={styles.buttonText}>Guardar</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ) : (
+                    <Text style={styles.commentText}>
+                      {comment.content || comment.text || ""}
+                    </Text>
+                  )}
                 </View>
               ))
             ) : (

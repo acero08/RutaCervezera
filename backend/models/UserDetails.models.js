@@ -17,28 +17,53 @@ const UserDetailSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  image:{
-    type:String
+  image: {
+    type: String
   },
-  gender:{
-    type:String
+  gender: {
+    type: String
   },
-  accountType:{
-    type:String,
+  accountType: {
+    type: String,
     enum: ['user', 'business', 'admin'],
     default: 'user'
   },
   favorites: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Bar'
-  }]
+  }],
+  // NUEVO: Para admins que pueden crear bares
+  managedBars: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Bar'
+  }],
+  // NUEVO: Permisos específicos para diferentes tipos de admin
+  permissions: {
+    canCreateBars: {
+      type: Boolean,
+      default: function() {
+        return this.accountType === 'admin' || this.accountType === 'business';
+      }
+    },
+    canManageAllBars: {
+      type: Boolean,
+      default: function() {
+        return this.accountType === 'admin';
+      }
+    },
+    canManageUsers: {
+      type: Boolean,
+      default: function() {
+        return this.accountType === 'admin';
+      }
+    }
+  }
 }, {
-    timestamps: true
+  timestamps: true
 });
 
 const UserDetail = mongoose.model('UserDetail', UserDetailSchema);
 module.exports = UserDetail;
-
 
 //{
  //  name: String,

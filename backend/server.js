@@ -54,6 +54,7 @@ mongoose.connect("mongodb+srv://andreacero:A.acero2020@backenddb.0peewj7.mongodb
     
 
 // IMAGENES
+////********************************************////
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, "uploads/"); 
@@ -74,7 +75,451 @@ if (!fs.existsSync(uploadsDir)) {
 
 ////********************************************////
 
+       //ADMIN//
+////********************************************////
 
+// Middleware para verificar permisos de admin/business
+const verifyAdminPermissions = async (req, res, next) => {
+  try {
+    const { token } = req.body;
+    
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "Token requerido"
+      });
+    }
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await User.findById(decoded.userId);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Usuario no encontrado"
+      });
+    }
+
+    if (user.accountType !== 'admin' && user.accountType !== 'business') {
+      return res.status(403).json({
+        success: false,
+        message: "No tienes permisos para esta acción"
+      });
+    }
+
+    req.user = user;
+    next();
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      message: "Token inválido"
+    });
+  }
+};
+
+// Ruta para promover usuario a business owner
+app.put("/api/promote-to-business", async (req, res) => {
+  try {
+    const { token, targetUserId } = req.body;
+    
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: "Token requerido"
+      });
+    }
+
+    // Verificar que el usuario actual es admin
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const adminUser = await User.findById(decoded.userId);
+    
+    if (!adminUser || adminUser.accountType !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: "Solo los administradores pueden promover usuarios"
+      });
+    }
+
+    // Buscar usuario a promover
+    const targetUser = await User.findById(targetUserId);
+    if (!targetUser) {
+      return res.status(404).json({
+        success: false,
+        message: "Usuario no encontrado"
+      });
+    }
+
+    // Actualizar tipo de cuenta
+    targetUser.accountType = 'business';
+    targetUser.permissions.canCreateBars = true;
+    await targetUser.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Usuario promovido a business owner exitosamente",
+      data: {
+        id: targetUser._id,
+        name: targetUser.name,
+        email: targetUser.email,
+        accountType: targetUser.accountType
+      }
+    });
+
+  } catch (error) {
+    console.error("Error promoviendo usuario:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error en el servidor",
+      error: error.message
+    });
+  }
+});
+
+// Ruta para crear un bar (solo admin/business)
+app.post("/api/create-bar", upload.array('images', 5), verifyAdminPermissions, async (req, res) => {
+  try {
+    const {
+      name,
+      description,
+      address,
+      city,
+      phone,
+      email,
+      website,
+      openingHours,
+      priceRange,
+      category,
+      specialties
+    } = req.body;
+
+    // Validaciones básicas
+    if (!name || !address || !city) {
+      return res.status(400).json({
+        success: false,
+        message: "Nombre, dirección y ciudad son requeridos"
+      });
+    }
+
+    // Verificar si ya existe un bar con el mismo nombre en la misma ciudad
+    const existingBar = await Bar.findOne({ 
+      name: name.trim(),
+      city: city.trim()
+    });
+    
+    if (existingBar) {
+      return res.status(409).json({
+        success: false,
+        message: "Ya existe un bar con este nombre en esta ciudad"
+      });
+    }
+
+    // Procesar imágenes subidas
+    let imageUrls = [];
+    if (req.files && req.files.length > 0) {
+      imageUrls = req.files.map(file => `/uploads/${file.filename}`);
+    }
+
+    // Crear el bar
+    const newBar = await Bar.create({
+      name: name.trim(),
+      description: description?.trim() || '',
+      address: address.trim(),
+      city: city.trim(),
+      phone: phone?.trim() || '',
+      email: email?.trim() || '',
+      website: website?.trim() || '',
+      openingHours: openingHours ? JSON.parse(openingHours) : {},
+      priceRange: priceRange || 'medium',
+      category: category?.trim() || 'bar',
+      specialties: specialties ? specialties.split(',').map(s => s.trim()) : [],
+      images: imageUrls,
+      owner: req.user._id,
+      isActive: true
+    });
+
+    // Agregar el bar a la lista de bares gestionados del usuario
+    req.user.managedBars.push(newBar._id);
+    await req.user.save();
+
+    res.status(201).json({
+      success: true,
+      message: "Bar creado exitosamente",
+      data: newBar
+    });
+
+  } catch (error) {
+    console.error("Error creando bar:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error en el servidor",
+      error: error.message
+    });
+  }
+});
+
+// Ruta para obtener bares gestionados por el usuario
+app.get("/api/my-bars", async (req, res) => {
+  try {
+    const { token } = req.query;
+    
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: "Token requerido"
+      });
+    }
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await User.findById(decoded.userId).populate('managedBars');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Usuario no encontrado"
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: user.managedBars
+    });
+
+  } catch (error) {
+    console.error("Error obteniendo bares:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error en el servidor",
+      error: error.message
+    });
+  }
+});
+
+// Ruta para actualizar un bar (solo el owner o admin)
+app.put("/api/update-bar/:barId", upload.array('images', 5), async (req, res) => {
+  try {
+    const { token } = req.body;
+    const { barId } = req.params;
+    
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: "Token requerido"
+      });
+    }
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await User.findById(decoded.userId);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Usuario no encontrado"
+      });
+    }
+
+    // Buscar el bar
+    const bar = await Bar.findById(barId);
+    if (!bar) {
+      return res.status(404).json({
+        success: false,
+        message: "Bar no encontrado"
+      });
+    }
+
+    // Verificar permisos (owner del bar o admin)
+    if (bar.owner.toString() !== user._id.toString() && user.accountType !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: "No tienes permisos para actualizar este bar"
+      });
+    }
+
+    // Actualizar campos
+    const updateFields = [
+      'name', 'description', 'address', 'city', 'phone', 
+      'email', 'website', 'priceRange', 'category'
+    ];
+    
+    updateFields.forEach(field => {
+      if (req.body[field] && req.body[field].trim()) {
+        bar[field] = req.body[field].trim();
+      }
+    });
+
+    // Actualizar horarios si se proporcionan
+    if (req.body.openingHours) {
+      bar.openingHours = JSON.parse(req.body.openingHours);
+    }
+
+    // Actualizar especialidades
+    if (req.body.specialties) {
+      bar.specialties = req.body.specialties.split(',').map(s => s.trim());
+    }
+
+    // Procesar nuevas imágenes
+    if (req.files && req.files.length > 0) {
+      const newImages = req.files.map(file => `/uploads/${file.filename}`);
+      bar.images = [...bar.images, ...newImages];
+    }
+
+    await bar.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Bar actualizado exitosamente",
+      data: bar
+    });
+
+  } catch (error) {
+    console.error("Error actualizando bar:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error en el servidor",
+      error: error.message
+    });
+  }
+});
+
+// Ruta para eliminar un bar (solo owner o admin)
+app.delete("/api/delete-bar/:barId", async (req, res) => {
+  try {
+    const { token } = req.body;
+    const { barId } = req.params;
+    
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: "Token requerido"
+      });
+    }
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await User.findById(decoded.userId);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Usuario no encontrado"
+      });
+    }
+
+    const bar = await Bar.findById(barId);
+    if (!bar) {
+      return res.status(404).json({
+        success: false,
+        message: "Bar no encontrado"
+      });
+    }
+
+    // Verificar permisos
+    if (bar.owner.toString() !== user._id.toString() && user.accountType !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: "No tienes permisos para eliminar este bar"
+      });
+    }
+
+    // Eliminar imágenes del servidor
+    if (bar.images && bar.images.length > 0) {
+      bar.images.forEach(imagePath => {
+        const fullPath = path.join(__dirname, imagePath);
+        if (fs.existsSync(fullPath)) {
+          try {
+            fs.unlinkSync(fullPath);
+          } catch (error) {
+            console.log("Error eliminando imagen:", error.message);
+          }
+        }
+      });
+    }
+
+    // Eliminar bar de la lista de bares gestionados del usuario
+    user.managedBars = user.managedBars.filter(id => id.toString() !== barId);
+    await user.save();
+
+    // Eliminar el bar
+    await Bar.findByIdAndDelete(barId);
+
+    res.status(200).json({
+      success: true,
+      message: "Bar eliminado exitosamente"
+    });
+
+  } catch (error) {
+    console.error("Error eliminando bar:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error en el servidor",
+      error: error.message
+    });
+  }
+});
+
+// Ruta para obtener estadísticas del bar (solo owner o admin)
+app.get("/api/bar-stats/:barId", async (req, res) => {
+  try {
+    const { token } = req.query;
+    const { barId } = req.params;
+    
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: "Token requerido"
+      });
+    }
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await User.findById(decoded.userId);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Usuario no encontrado"
+      });
+    }
+
+    const bar = await Bar.findById(barId);
+    if (!bar) {
+      return res.status(404).json({
+        success: false,
+        message: "Bar no encontrado"
+      });
+    }
+
+    // Verificar permisos
+    if (bar.owner.toString() !== user._id.toString() && user.accountType !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: "No tienes permisos para ver las estadísticas de este bar"
+      });
+    }
+
+    // Calcular estadísticas básicas
+    const stats = {
+      totalFavorites: await User.countDocuments({ favorites: barId }),
+      averageRating: bar.averageRating || 0,
+      totalReviews: bar.reviewCount || 0,
+      createdAt: bar.createdAt,
+      isActive: bar.isActive,
+      viewCount: bar.viewCount || 0
+    };
+
+    res.status(200).json({
+      success: true,
+      data: stats
+    });
+
+  } catch (error) {
+    console.error("Error obteniendo estadísticas:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error en el servidor",
+      error: error.message
+    });
+  }
+});
+
+////********************************************////
 
         // EVENTOS //
 ////********************************************////
@@ -1088,57 +1533,163 @@ app.delete("/api/menu/:itemId", async (req, res) => {
 ////********************************************////
 
 
+
 // GET reviews for a specific bar
-// GET reviews for a specific bar
+
 app.get("/api/bars/:barId/reviews", async (req, res) => {
   try {
     console.log("Fetching reviews for bar:", req.params.barId);
+    console.log("Available models check:");
+console.log("Review model:", !!Review);
+console.log("UpvoteReview model:", !!UpvoteReview);  
+console.log("Comment model:", !!Comment);
 
-    // Validate barId format (assuming MongoDB ObjectId)
-    if (!req.params.barId.match(/^[0-9a-fA-F]{24}$/)) {
+    const { barId } = req.params;
+
+    // Validate barId format solo si estás usando MongoDB ObjectId
+    if (barId && barId.length === 24 && !barId.match(/^[0-9a-fA-F]{24}$/)) {
       return res.status(400).json({ 
         success: false,
         message: "Invalid bar ID format" 
       });
     }
 
-    const reviews = await Review.find({ bar: req.params.barId })
-      .populate('user', 'name email image')
-      .sort({ createdAt: -1 });
+    // Verificar si Review model existe y está disponible
+    if (!Review) {
+      console.error("Review model not found");
+      return res.status(500).json({
+        success: false,
+        message: "Review model not available"
+      });
+    }
+
+    console.log("Fetching reviews from database...");
+
+    // Fetch reviews con manejo de errores mejorado
+    let reviews;
+    try {
+      reviews = await Review.find({ bar: barId })
+        .populate({
+          path: 'user',
+          select: 'name email image',
+          options: { 
+            strictPopulate: false 
+          }
+        })
+        .sort({ createdAt: -1 })
+        .exec();
+    } catch (populateError) {
+      console.error("Error with populate, trying without:", populateError);
+      // Fallback sin populate
+      reviews = await Review.find({ bar: barId })
+        .sort({ createdAt: -1 })
+        .exec();
+    }
 
     console.log(`Found ${reviews.length} reviews`);
 
-    const reviewsWithData = await Promise.all(reviews.map(async review => {
-      const upvotes = await UpvoteReview.countDocuments({ review: review._id });
-      const commentCount = await Comment.countDocuments({ review: review._id });
-      
-      return {
-        _id: review._id,
-        user: review.user,
-        bar: review.bar,
-        rating: review.rating,
-        comment: review.comment,
-        upvotes: upvotes,
-        commentCount: commentCount,
-        createdAt: review.createdAt,
-        updatedAt: review.updatedAt
-      };
-    }));
+    // Si no hay reviews, retornar array vacío
+    if (!reviews || reviews.length === 0) {
+      return res.status(200).json({ 
+        success: true,
+        data: [] 
+      });
+    }
+
+    // Process reviews con mejor manejo de errores
+    const reviewsWithData = [];
+
+    for (const review of reviews) {
+      try {
+        // Handle case where user might be null
+        const userInfo = review.user || { 
+          name: "Usuario", 
+          email: "", 
+          image: "",
+          _id: null
+        };
+
+        let upvotes = 0;
+        let commentCount = 0;
+
+        // Intentar obtener conteos solo si los modelos existen
+        try {
+          if (UpvoteReview) {
+            upvotes = await UpvoteReview.countDocuments({ review: review._id });
+          }
+        } catch (upvoteError) {
+          console.warn("Error counting upvotes:", upvoteError);
+        }
+
+        try {
+          if (Comment) {
+            commentCount = await Comment.countDocuments({ review: review._id });
+          }
+        } catch (commentError) {
+          console.warn("Error counting comments:", commentError);
+        }
+        
+        reviewsWithData.push({
+          _id: review._id,
+          user: userInfo,
+          bar: review.bar,
+          rating: review.rating || 0,
+          comment: review.comment || "",
+          upvotes: upvotes,
+          commentCount: commentCount,
+          createdAt: review.createdAt,
+          updatedAt: review.updatedAt
+        });
+
+      } catch (reviewError) {
+        console.error("Error processing review:", review._id, reviewError);
+        // Incluir review básico en caso de error
+        reviewsWithData.push({
+          _id: review._id,
+          user: { name: "Usuario", email: "", image: "", _id: null },
+          bar: review.bar,
+          rating: review.rating || 0,
+          comment: review.comment || "",
+          upvotes: 0,
+          commentCount: 0,
+          createdAt: review.createdAt,
+          updatedAt: review.updatedAt
+        });
+      }
+    }
 
     res.status(200).json({ 
       success: true,
       data: reviewsWithData 
     });
+
   } catch (error) {
-    console.error("Error fetching reviews:", error);
+    console.error("Error fetching reviews - Full error:", error);
+    console.error("Error stack:", error.stack);
+    
+    // Respuestas de error más específicas
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid ID format"
+      });
+    }
+    
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: "Validation error"
+      });
+    }
+
+    // Error genérico
     res.status(500).json({ 
       success: false,
-      message: "Error fetching reviews", 
-      error: error.message 
+      message: "Error fetching reviews",
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }
 });
-
 
 
 // POST - Create a new review - FIXED
@@ -1631,38 +2182,55 @@ app.get("/api/reviews/:reviewId/comments", async (req, res) => {
   try {
     const { reviewId } = req.params;
 
-    // Validate reviewId format
-    if (!reviewId.match(/^[0-9a-fA-F]{24}$/)) {
+    console.log("Iniciando obtención de comentarios para review:", reviewId);
+    
+    // Validación mejorada del ID
+    if (!mongoose.Types.ObjectId.isValid(reviewId)) {
       return res.status(400).json({ 
         success: false,
-        message: "Invalid review ID format" 
+        message: "Formato de ID de reseña inválido" 
       });
     }
 
-    // Check if review exists
-    const review = await Review.findById(reviewId);
+    console.log("Buscando review en la base de datos...");
+    const review = await Review.findById(reviewId).lean();
+    
     if (!review) {
+      console.log("Review no encontrada");
       return res.status(404).json({ 
         success: false,
-        message: "Review not found" 
+        message: "Reseña no encontrada" 
       });
     }
 
+    console.log("Buscando comentarios...");
     const comments = await Comment.find({ review: reviewId })
-      .populate('user', 'name email image')
-      .sort({ createdAt: -1 });
+      .populate({
+        path: 'user',
+        select: 'name email image',
+        model: 'User' // Asegurar referencia correcta
+      })
+      .sort({ createdAt: -1 })
+      .lean();
 
+    console.log(`Encontrados ${comments.length} comentarios`);
+      
     res.status(200).json({ 
       success: true,
       data: comments 
     });
 
   } catch (error) {
-    console.error("Error fetching comments:", error);
+    console.error("Error en GET /comments:", {
+      message: error.message,
+      stack: error.stack,
+      params: req.params
+    });
+    
     res.status(500).json({ 
       success: false,
-      message: "Error fetching comments", 
-      error: error.message 
+      message: "Error interno al obtener comentarios",
+      error: process.env.NODE_ENV === 'development' ? error.message : null
     });
   }
 });
@@ -1793,318 +2361,6 @@ const authenticate = async (req, res, next) => {
 
 ////********************************************////
 
-
-                //YELP
-////********************************************////
-app.get('/api/categories', async (req, res) => {
-  try {
-    const response = await axios.get('https://api.yelp.com/v3/categories', {
-      headers: yelpHeaders
-    });
-
-    // Filtrar categorías relacionadas con bares y bebidas
-    const barCategories = response.data.categories.filter(category =>
-      category.title.toLowerCase().includes('bar') || 
-      category.title.toLowerCase().includes('cerveza') || 
-      category.title.toLowerCase().includes('cóctel') || 
-      category.title.toLowerCase().includes('whisky')
-    );
-
-    res.json(barCategories);
-  } catch (error) {
-    console.error('Categories Error:', error.response?.data || error.message);
-    res.status(500).json({
-      error: "Failed to get categories",
-      details: error.response?.data || error.message
-    });
-  }
-});
-
-
-// BUSCAR
-app.get("/api/bar/search", async (req, res) => {
-    try {
-      const { name, location = "Mexicali", limit = 5, categories } = req.query;
-  
-      const params = {
-        term: name,
-        location,
-        limit,
-        ...(categories && { categories }) 
-      };
-  
-      const response = await axios.get(`${YELP_BASE_URL}/search`, {
-        headers: yelpHeaders,
-        params
-      });
-  
-      const matchingBars = name
-        ? response.data.businesses.filter((cerveceria) =>
-          cerveceria.name.toLowerCase().includes(name.toLowerCase())
-          )
-        : response.data.businesses;
-  
-      res.json(matchingBars);
-    } catch (error) {
-      console.error("Yelp API Error:", error.response?.data || error.message);
-      res.status(500).json({
-        error: "Search failed",
-        details: error.response?.data || error.message,
-      });
-    }
-});
-
-  // X id
-  app.get('/api/bar/:id', async (req, res) => {
-    try {
-      const { id } = req.params;
-      
-      if (!id) {
-        return res.status(400).json({ error: "Business ID is required" });
-      }
-  
-      const response = await axios.get(`${YELP_BASE_URL}/${id}`, {
-        headers: yelpHeaders
-      });
-  
-      res.json(response.data);
-    } catch (error) {
-      console.error('Business Details Error:', error.response?.data || error.message);
-      
-      const status = error.response?.status || 500;
-      const errorData = {
-        error: "Failed to get business details",
-        details: error.response?.data || error.message
-      };
-  
-      if (status === 404) {
-        errorData.error = "Business not found on Yelp";
-      }
-  
-      res.status(status).json(errorData);
-    }
-  });
-
-  
- // Reviews Yelp
- app.get('/api/bar/:id/reviews', async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    if (!id) {
-      return res.status(400).json({ error: "Business ID is required" });
-    }
-
-    try {
-      const yelpResponse = await axios.get(`${YELP_BASE_URL}/${id}/reviews`, {
-        headers: yelpHeaders
-      });
-      
-      if (yelpResponse.data.reviews && yelpResponse.data.reviews.length > 0) {
-        return res.json({
-          ...yelpResponse.data,
-          source: 'yelp'
-        });
-      }
-    } catch (yelpError) {
-      console.log('Yelp reviews not available, trying local database...');
-    }
-
-   
-    const localReviews = await Review.find({ place_id: id });
-    if (localReviews.length > 0) {
-      return res.json({
-        reviews: localReviews,
-        total: localReviews.length,
-        source: 'local_database'
-      });
-    }
-
-    res.status(404).json({
-      error: "No reviews available",
-      details: "This business has no reviews in either Yelp or our local database"
-    });
-
-  } catch (error) {
-    console.error('Reviews Error:', error.message);
-    res.status(500).json({
-      error: "Failed to get reviews",
-      details: error.message
-    });
-  }
-});
-
-
-//Buisiness MAtch
-
-app.post('/api/bar/match', async (req, res) => {
-  try {
-    const { name, address1, city, state, country } = req.body;
-    
-    if (!name || !address1 || !city || !state || !country) {
-      return res.status(400).json({ error: "All fields (name, address1, city, state, country) are required" });
-    }
-
-    const response = await axios.get(`${YELP_BASE_URL}/matches`, {
-      headers: yelpHeaders,
-      params: {
-        name,
-        address1,
-        city,
-        state,
-        country
-      }
-    });
-
-    if (response.data.businesses && response.data.businesses.length > 0) {
-      res.json(response.data.businesses[0]);
-    } else {
-      res.status(404).json({ error: "No matching business found" });
-    }
-  } catch (error) {
-    console.error('Business Match Error:', error.response?.data || error.message);
-    const status = error.response?.status || 500;
-    res.status(status).json({
-      error: "Failed to match business",
-      details: error.response?.data || error.message
-    });
-  }
-});
-
-//Delivary para munchiess nos se si usar
-app.get('/api/business/delivery', async (req, res) => {
-  try {
-    const { location, limit = 5, categories } = req.query;
-    
-    if (!location) {
-      return res.status(400).json({ error: "Location parameter is required" });
-    }
-
-    // First try the delivery-specific endpoint
-    try {
-      const response = await axios.get(`${YELP_BASE_URL}/transactions/delivery/search`, {
-        headers: yelpHeaders,
-        params: { location, limit }
-      });
-      
-      if (response.data.businesses?.length > 0) {
-        return res.json(response.data.businesses);
-      }
-    } catch (deliveryError) {
-      console.log('Delivery endpoint not available, falling back to regular search with delivery filter...');
-    }
-
-    // Fallback to regular search with transactions filter
-    const params = {
-      location,
-      limit,
-      ...(categories && { categories }),
-      attributes: "delivery" // Filter for delivery-available businesses
-    };
-
-    const fallbackResponse = await axios.get(`${YELP_BASE_URL}/search`, {
-      headers: yelpHeaders,
-      params
-    });
-
-    // Locales que hacen delivery
-    const deliveryBusinesses = fallbackResponse.data.businesses?.filter(b => 
-      b.transactions?.includes("delivery")
-    ) || [];
-
-    res.json(deliveryBusinesses.slice(0, limit));
-
-  } catch (error) {
-    console.error('Delivery Search Error:', error.response?.data || error.message);
-    
-    const status = error.response?.status || 500;
-    const errorData = {
-      error: "Failed to find delivery options",
-      details: error.response?.data || error.message
-    };
-
-    res.status(status).json(errorData);
-  }
-});
-
-  // AutoComplete
-app.get("/api/autocomplete", async (req, res) => {
-    try {
-      const { text, latitude, longitude } = req.query;
-      
-      if (!text) {
-        return res.status(400).json({ error: "Text parameter is required" });
-      }
-  
-      const params = {
-        text,
-        ...(latitude && longitude && { latitude, longitude })
-      };
-  
-      const response = await axios.get(`${YELP_BASE_URL}/autocomplete`, {
-        headers: yelpHeaders,
-        params
-      });
-  
-      res.json(response.data);
-    } catch (error) {
-      console.error("Autocomplete Error:", error.response?.data || error.message);
-      res.status(error.response?.status || 500).json({
-        error: "Autocomplete failed",
-        details: error.response?.data || error.message
-      });
-    }
-  });
-
-  //Que comida y drinks venden
-  app.get('/api/bar/:id/menu', async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { locale } = req.query;
-  
-      if (!id) {
-        return res.status(400).json({ error: "Business ID is required" });
-      }
-  
-      // Try to get insights first
-      try {
-        const insightsResponse = await axios.get(
-          `${YELP_BASE_URL}/${id}/insights/food_and_drinks`,
-          { headers: yelpHeaders, params: { locale } }
-        );
-        return res.json(insightsResponse.data);
-      } catch (insightsError) {
-        console.log('Insights not available, falling back to basic business info...');
-        
-        // Fallback to regular business endpoint
-        const businessResponse = await axios.get(
-          `${YELP_BASE_URL}/${id}`,
-          { headers: yelpHeaders }
-        );
-  
-        // Return limited info from main business endpoint
-        res.json({
-          menu_highlights: businessResponse.data.categories || [],
-          notice: "Full food & drinks insights require premium access",
-          business_name: businessResponse.data.name,
-          rating: businessResponse.data.rating,
-          price_level: businessResponse.data.price
-        });
-      }
-  
-    } catch (error) {
-      console.error('Food & Drinks Insights Error:', error.response?.data || error.message);
-      
-      const status = error.response?.status || 500;
-      const errorData = {
-        error: "Failed to get business information",
-        details: error.response?.data || error.message
-      };
-  
-      res.status(status).json(errorData);
-    }
-  });
-  ////********************************************////
 
 app.listen(port, () => {
     console.log(`Server running on port ${port}`);

@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const UpvoteReviewSchema = new mongoose.Schema({
   user: { 
     type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User', 
+    ref: 'UserDetail', 
     required: true 
   },
   review: { 

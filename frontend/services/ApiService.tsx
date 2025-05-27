@@ -15,47 +15,151 @@ export default class ApiService {
     return ApiService.instance;
   }
 
+  // Agrega estos métodos a tu clase ApiService:
+
+  async editComment(commentId: string, token: string, content: string) {
+    try {
+      if (!commentId || !token || !content) {
+        throw new Error("Todos los parámetros son requeridos");
+      }
+
+      if (content.trim().length === 0) {
+        throw new Error("El comentario no puede estar vacío");
+      }
+
+      if (content.trim().length > 500) {
+        throw new Error(
+          "El comentario es demasiado largo (máximo 500 caracteres)"
+        );
+      }
+
+      const payload = {
+        token: token.trim(),
+        content: content.trim(),
+      };
+
+      console.log("Editing comment:", {
+        commentId,
+        contentLength: content.length,
+      });
+
+      const response = await axios.put(
+        `${this.api}/comments/${commentId}`,
+        payload,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          timeout: 15000,
+        }
+      );
+
+      console.log("Comment edited successfully");
+      return response.data;
+    } catch (error: any) {
+      console.error("Error editing comment:", error);
+
+      if (error.response) {
+        const status = error.response.status;
+        const message = error.response.data?.message;
+
+        switch (status) {
+          case 400:
+            throw new Error(message || "Datos del comentario inválidos");
+          case 401:
+            throw new Error("Debes iniciar sesión para editar comentarios");
+          case 403:
+            throw new Error("Solo puedes editar tus propios comentarios");
+          case 404:
+            throw new Error("Comentario no encontrado");
+          case 500:
+            throw new Error("Error del servidor. Intenta más tarde");
+          default:
+            throw new Error(message || "Error desconocido");
+        }
+      }
+
+      if (error.code === "ECONNABORTED") {
+        throw new Error("Tiempo de espera agotado. Intenta de nuevo");
+      }
+
+      throw error;
+    }
+  }
+
+  async deleteComment(commentId: string, token: string) {
+    try {
+      if (!commentId || !token) {
+        throw new Error("Parámetros requeridos faltantes");
+      }
+
+      console.log("Deleting comment:", { commentId });
+
+      const response = await axios.delete(`${this.api}/comments/${commentId}`, {
+        data: {
+          token: token.trim(),
+        },
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        timeout: 15000,
+      });
+
+      console.log("Comment deleted successfully");
+      return response.data;
+    } catch (error: any) {
+      console.error("Error deleting comment:", error);
+
+      if (error.response) {
+        const status = error.response.status;
+        const message = error.response.data?.message;
+
+        switch (status) {
+          case 401:
+            throw new Error("Debes iniciar sesión para eliminar comentarios");
+          case 403:
+            throw new Error("Solo puedes eliminar tus propios comentarios");
+          case 404:
+            throw new Error("Comentario no encontrado");
+          case 500:
+            throw new Error("Error del servidor. Intenta más tarde");
+          default:
+            throw new Error(message || "Error desconocido");
+        }
+      }
+
+      throw error;
+    }
+  }
+
   // Método corregido para obtener reseñas - manejo de errores mejorado
   async getBarReviews(barId: string) {
     try {
       console.log("Fetching reviews for bar:", barId);
 
       const response = await axios.get(`${this.api}/bars/${barId}/reviews`, {
-        timeout: 10000, // Reducido de 15000 a 10000
+        timeout: 10000,
         headers: {
           "Content-Type": "application/json",
         },
-        validateStatus: function (status) {
-          return status < 500; // Aceptar cualquier código menor a 500
-        },
       });
 
-      console.log("Reviews response status:", response.status);
-      console.log("Reviews response data:", response.data);
+      console.log("Reviews response:", response.data);
 
-      // Si es 404, retornar array vacío (no hay reseñas)
-      if (response.status === 404) {
-        return { success: true, data: [] };
-      }
-
-      // Si hay error del servidor (5xx), lanzar excepción
-      if (response.status >= 500) {
-        throw new Error("Server error - please try again later");
-      }
-
+      // Handle different response structures
+      let reviews = [];
       const responseData = response.data;
 
-      if (responseData.success === false) {
-        return { success: false, data: [], message: responseData.message };
-      }
-
-      let reviews = [];
       if (Array.isArray(responseData)) {
         reviews = responseData;
       } else if (responseData.data && Array.isArray(responseData.data)) {
         reviews = responseData.data;
       } else if (responseData.reviews && Array.isArray(responseData.reviews)) {
         reviews = responseData.reviews;
+      } else if (responseData.success && responseData.data) {
+        reviews = Array.isArray(responseData.data) ? responseData.data : [];
       }
 
       return {
@@ -64,22 +168,17 @@ export default class ApiService {
       };
     } catch (error: any) {
       console.error("Error fetching reviews:", error);
+      console.error("Error response data:", error.response?.data);
+      console.error("Error response status:", error.response?.status);
 
-      // Si es error de timeout o red
-      if (error.code === "ECONNABORTED" || error.message?.includes("timeout")) {
-        throw new Error("Connection timeout - please try again");
+      if (error.response?.status === 404) {
+        return { success: true, data: [] };
       }
 
-      if (error.response) {
-        if (error.response.status === 404) {
-          return { success: true, data: [] };
-        } else if (error.response.status >= 500) {
-          throw new Error("Server error - please try again later");
-        } else if (error.response.status === 400) {
-          throw new Error(error.response.data?.message || "Bad request");
-        }
-      } else if (error.request) {
-        throw new Error("Network error - please check your connection");
+      // For 500 errors or network issues, return empty array instead of throwing
+      if (error.response?.status >= 500 || !error.response) {
+        console.warn("Server or network error, returning empty reviews");
+        return { success: true, data: [] };
       }
 
       throw error;
@@ -185,15 +284,21 @@ export default class ApiService {
   ) {
     try {
       if (!reviewId || !token) {
-        throw new Error("Missing required parameters");
+        throw new Error("Parámetros requeridos faltantes");
       }
 
       if (rating < 1 || rating > 5) {
-        throw new Error("Rating must be between 1 and 5");
+        throw new Error("La calificación debe estar entre 1 y 5 estrellas");
       }
 
       if (!comment || comment.trim().length === 0) {
-        throw new Error("Comment cannot be empty");
+        throw new Error("La reseña no puede estar vacía");
+      }
+
+      if (comment.trim().length > 1000) {
+        throw new Error(
+          "La reseña es demasiado larga (máximo 1000 caracteres)"
+        );
       }
 
       const payload = {
@@ -201,6 +306,12 @@ export default class ApiService {
         rating: Number(rating),
         comment: comment.trim(),
       };
+
+      console.log("Editing review:", {
+        reviewId,
+        rating,
+        commentLength: comment.length,
+      });
 
       const response = await axios.put(
         `${this.api}/reviews/${reviewId}`,
@@ -210,7 +321,7 @@ export default class ApiService {
             "Content-Type": "application/json",
             Accept: "application/json",
           },
-          timeout: 15000, // Reducido de 20000
+          timeout: 15000,
           validateStatus: function (status) {
             return status < 500;
           },
@@ -220,30 +331,36 @@ export default class ApiService {
       if (response.status >= 400) {
         const errorMessage =
           response.data?.message ||
-          `Request failed with status ${response.status}`;
+          `La solicitud falló con estado ${response.status}`;
         throw new Error(errorMessage);
       }
 
+      console.log("Review edited successfully");
       return response.data;
     } catch (error: any) {
       console.error("Error editing review:", error);
 
       if (error.code === "ECONNABORTED" || error.message?.includes("timeout")) {
-        throw new Error("Connection timeout - please try again");
+        throw new Error("Tiempo de espera agotado. Intenta de nuevo");
       }
 
       if (error.response) {
         const status = error.response.status;
-        if (status === 400) {
-          throw new Error(
-            error.response.data?.message || "Invalid request data"
-          );
-        } else if (status === 401) {
-          throw new Error("Authentication required");
-        } else if (status === 403) {
-          throw new Error("You can only edit your own reviews");
-        } else if (status === 404) {
-          throw new Error("Review not found");
+        const message = error.response.data?.message;
+
+        switch (status) {
+          case 400:
+            throw new Error(message || "Datos de la reseña inválidos");
+          case 401:
+            throw new Error("Debes iniciar sesión para editar reseñas");
+          case 403:
+            throw new Error("Solo puedes editar tus propias reseñas");
+          case 404:
+            throw new Error("Reseña no encontrada");
+          case 500:
+            throw new Error("Error del servidor. Intenta más tarde");
+          default:
+            throw new Error(message || "Error desconocido");
         }
       }
 
@@ -254,10 +371,10 @@ export default class ApiService {
   async deleteReview(reviewId: string, token: string) {
     try {
       if (!reviewId || !token) {
-        throw new Error("Missing required parameters");
+        throw new Error("Parámetros requeridos faltantes");
       }
 
-      console.log("Deleting review:", { reviewId, hasToken: !!token });
+      console.log("Deleting review:", { reviewId });
 
       const response = await axios.delete(`${this.api}/reviews/${reviewId}`, {
         data: {
@@ -270,23 +387,26 @@ export default class ApiService {
         timeout: 15000,
       });
 
-      console.log("Review deleted successfully:", response.data);
+      console.log("Review deleted successfully");
       return response.data;
     } catch (error: any) {
       console.error("Error deleting review:", error);
 
       if (error.response) {
-        console.error("Error response:", {
-          status: error.response.status,
-          data: error.response.data,
-        });
+        const status = error.response.status;
+        const message = error.response.data?.message;
 
-        if (error.response.status === 401) {
-          throw new Error("Authentication required");
-        } else if (error.response.status === 403) {
-          throw new Error("You can only delete your own reviews");
-        } else if (error.response.status === 404) {
-          throw new Error("Review not found");
+        switch (status) {
+          case 401:
+            throw new Error("Debes iniciar sesión para eliminar reseñas");
+          case 403:
+            throw new Error("Solo puedes eliminar tus propias reseñas");
+          case 404:
+            throw new Error("Reseña no encontrada");
+          case 500:
+            throw new Error("Error del servidor. Intenta más tarde");
+          default:
+            throw new Error(message || "Error desconocido");
         }
       }
 
@@ -348,6 +468,8 @@ export default class ApiService {
   // Método corregido para obtener comentarios
   async getComments(reviewId: string) {
     try {
+      console.log("Obteniendo comentarios para review:", reviewId);
+
       if (!reviewId) {
         throw new Error("Review ID is required");
       }
@@ -408,11 +530,17 @@ export default class ApiService {
   async postComment(reviewId: string, token: string, comment: string) {
     try {
       if (!reviewId || !token || !comment) {
-        throw new Error("All parameters are required");
+        throw new Error("Todos los parámetros son requeridos");
       }
 
       if (comment.trim().length === 0) {
-        throw new Error("Comment cannot be empty");
+        throw new Error("El comentario no puede estar vacío");
+      }
+
+      if (comment.trim().length > 500) {
+        throw new Error(
+          "El comentario es demasiado largo (máximo 500 caracteres)"
+        );
       }
 
       const payload = {
@@ -422,8 +550,7 @@ export default class ApiService {
 
       console.log("Posting comment:", {
         reviewId,
-        comment: payload.comment.substring(0, 50) + "...",
-        hasToken: !!payload.token,
+        commentLength: comment.length,
       });
 
       const response = await axios.post(
@@ -438,32 +565,36 @@ export default class ApiService {
         }
       );
 
-      console.log("Comment posted successfully:", response.data);
+      console.log("Comment posted successfully");
       return response.data;
     } catch (error: any) {
       console.error("Error posting comment:", error);
 
       if (error.response) {
-        console.error("Error response:", {
-          status: error.response.status,
-          data: error.response.data,
-        });
+        const status = error.response.status;
+        const message = error.response.data?.message;
 
-        if (error.response.status === 400) {
-          throw new Error(
-            error.response.data?.message || "Invalid comment data"
-          );
-        } else if (error.response.status === 401) {
-          throw new Error("Authentication required");
-        } else if (error.response.status === 404) {
-          throw new Error("Review not found");
+        switch (status) {
+          case 400:
+            throw new Error(message || "Datos del comentario inválidos");
+          case 401:
+            throw new Error("Debes iniciar sesión para comentar");
+          case 404:
+            throw new Error("Reseña no encontrada");
+          case 500:
+            throw new Error("Error del servidor. Intenta más tarde");
+          default:
+            throw new Error(message || "Error desconocido");
         }
+      }
+
+      if (error.code === "ECONNABORTED") {
+        throw new Error("Tiempo de espera agotado. Intenta de nuevo");
       }
 
       throw error;
     }
   }
-
   // Métodos existentes sin cambios...
   public async login(email: string, password: string): Promise<any> {
     try {

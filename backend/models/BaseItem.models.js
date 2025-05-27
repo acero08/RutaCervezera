@@ -27,6 +27,12 @@ const baseItemSchema = new mongoose.Schema({
   isAvailable: {
     type: Boolean,
     default: true
+  },
+  // NUEVO: Referencia al usuario que creó el item
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'UserDetail',
+    required: true
   }
 }, { 
   timestamps: true,
