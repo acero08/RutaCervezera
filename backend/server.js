@@ -76,6 +76,37 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
+app.post('/api/users/:userId/assign-bar/:barId', async (req, res) => {
+  try {
+    const { userId, barId } = req.params;
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "Usuario no encontrado" });
+    }
+
+    // Validar tipo de cuenta
+    if (user.accountType !== 'business' && user.accountType !== 'admin') {
+      return res.status(403).json({ success: false, message: "Este usuario no tiene permisos para gestionar bares" });
+    }
+
+    // Verificar si el bar ya está asignado
+    if (user.managedBars.includes(barId)) {
+      return res.status(400).json({ success: false, message: "El bar ya está asignado a este usuario" });
+    }
+
+    // Asignar el bar
+    user.managedBars.push(barId);
+    await user.save();
+
+    res.status(200).json({ success: true, message: "Bar asignado exitosamente", managedBars: user.managedBars });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error al asignar bar", error: error.message });
+  }
+});
+
+
 ////********************************************////
 
 //USUARIO BAR//
@@ -1011,9 +1042,16 @@ app.post('/api/users/:userId/favorites/:barId', async (req, res) => {
   try {
     const { userId, barId } = req.params;
 
+    // Validate user
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ success: false, message: "Usuario no encontrado" });
+    }
+
+    // Validate bar
+    const bar = await Bar.findById(barId);
+    if (!bar) {
+      return res.status(404).json({ success: false, message: "Bar no encontrado" });
     }
 
     const alreadyFavorited = user.favorites.includes(barId);
@@ -1034,7 +1072,12 @@ app.post('/api/users/:userId/favorites/:barId', async (req, res) => {
       data: user.favorites
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Error al modificar favoritos", error: error.message });
+    console.error("Error modifying favorites:", error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Error al modificar favoritos", 
+      error: error.message 
+    });
   }
 });
 
@@ -1390,15 +1433,33 @@ app.get("/", (req, res) => {
 //Crear
 app.post("/api/bars", upload.single("image"), async (req, res) => {
   try {
-    const { name, address, phonenumber, rating } = req.body;
-    const image = req.file ? req.file.filename : null;
+    const {
+      name,
+      address,
+      phone,
+      city,
+      description,
+      email,
+      website,
+      category,
+      priceRange,
+      owner,
+    } = req.body;
+
+    const profileImage = req.file ? req.file.filename : null;
 
     const newBar = new Bar({
       name,
       address,
-      phonenumber,
-      rating,
-      image
+      phone,
+      city,
+      description,
+      email,
+      website,
+      category,
+      priceRange,
+      profileImage,
+      owner
     });
 
     await newBar.save();
@@ -1407,6 +1468,7 @@ app.post("/api/bars", upload.single("image"), async (req, res) => {
     res.status(500).json({ message: "Error al crear el bar", error });
   }
 });
+
 
 //Agarrar todos los bares
 app.get("/api/bars", async (req, res) => {

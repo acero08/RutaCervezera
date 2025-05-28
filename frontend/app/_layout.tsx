@@ -20,6 +20,7 @@ export default function RootLayout() {
         <Stack.Screen name="(menu)/alcoholic-drinks" options={{ headerShown: false }} />
         <Stack.Screen name="(menu)/drinks" options={{ headerShown: false }} />
         <Stack.Screen name="(menu)/food" options={{ headerShown: false }} />
+        <Stack.Screen name="(options)/preview" options={{ headerShown: false }} />
       </Stack>
     </AuthProvider>
   );

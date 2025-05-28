@@ -135,36 +135,6 @@ export default function Profile() {
           </View>
         </View>
 
-        {/* Stats Card */}
-        <View className="bg-gray-900 mx-4 mb-4 rounded-xl p-4">
-          <Text className="text-white text-lg font-bold mb-3">
-            Mis Estadísticas
-          </Text>
-          <View className="flex-row justify-between">
-            <View className="items-center">
-              <View className="w-12 h-12 rounded-full bg-amber-900 items-center justify-center mb-1">
-                <MaterialIcons name="local-bar" size={24} color="#fbbf24" />
-              </View>
-              <Text className="text-amber-500 font-bold">12</Text>
-              <Text className="text-gray-400 text-xs">Visitas</Text>
-            </View>
-            <View className="items-center">
-              <View className="w-12 h-12 rounded-full bg-amber-900 items-center justify-center mb-1">
-                <MaterialIcons name="star" size={24} color="#fbbf24" />
-              </View>
-              <Text className="text-amber-500 font-bold">8</Text>
-              <Text className="text-gray-400 text-xs">Reseñas</Text>
-            </View>
-            <View className="items-center">
-              <View className="w-12 h-12 rounded-full bg-amber-900 items-center justify-center mb-1">
-                <MaterialIcons name="emoji-events" size={24} color="#fbbf24" />
-              </View>
-              <Text className="text-amber-500 font-bold">3</Text>
-              <Text className="text-gray-400 text-xs">Logros</Text>
-            </View>
-          </View>
-        </View>
-
         {/* Menu Options */}
         <View className="bg-gray-900 mx-4 mb-4 rounded-xl overflow-hidden">
           <TouchableOpacity

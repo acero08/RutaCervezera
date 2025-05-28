@@ -1,71 +1,84 @@
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image } from "react-native"
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image, ActivityIndicator } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import { useRouter } from "expo-router";
+import { useAuth } from "../../context/AuthContext";
+import BarService from "../../services/BarService";
+import { useEffect, useState } from "react";
 
-// Mock data for favorites
-const MOCK_FAVORITES = [
-  {
-    id: "1",
-    name: "El Cantinero",
-    description: "Bar tradicional con amplia selección de tequilas y mezcales.",
-    rating: 4.7
-  },
-  {
-    id: "2",
-    name: "Cervecería Moderna",
-    description: "Cervezas artesanales y ambiente relajado.",
-    rating: 4.5
-  },
-  {
-    id: "3",
-    name: "La Bodega",
-    description: "Vinos selectos y tapas gourmet en un ambiente elegante.",
-    rating: 4.8
-  },
-  {
-    id: "4",
-    name: "Pub Irlandés",
-    description: "Auténtica experiencia irlandesa con música en vivo.",
-    rating: 4.2
-  },
-  {
-    id: "5",
-    name: "Coctelería Urbana",
-    description: "Cócteles de autor y música electrónica.",
-    rating: 4.6
-  }
-];
+interface Bar {
+  _id: string;
+  name: string;
+  description?: string;
+  averageRating?: number;
+}
 
 const FavoritesScreen = () => {
-const router = useRouter();
+  const router = useRouter();
+  const { user } = useAuth();
+  const [favorites, setFavorites] = useState<Bar[]>([]);
+  const [loading, setLoading] = useState(true);
+  const barService = BarService.getInstance();
+
+  useEffect(() => {
+    loadFavorites();
+  }, []);
+
+  const loadFavorites = async () => {
+    try {
+      if (user?._id) {
+        const userFavorites = await barService.getUserFavorites(user._id);
+        setFavorites(userFavorites);
+      }
+    } catch (error) {
+      console.error("Error loading favorites:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBarPress = (barId: string) => {
+    router.push(`/bars/${barId}` as any);
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#FFA500" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}> </Text>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
+          <Ionicons name="chevron-back" size={24} color="white" />
+        </TouchableOpacity>
+        <Text style={styles.title}>Favoritos</Text>
       </View>
-      
-    {/* irte pa atras */}
-    <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-        <Ionicons name="chevron-back" size={24} color="white" />
-    </TouchableOpacity>
 
       <FlatList
-        data={MOCK_FAVORITES}
-        keyExtractor={(item) => item.id}
+        data={favorites}
+        keyExtractor={(item) => item._id}
         renderItem={({ item }) => (
-          <TouchableOpacity style={styles.favoriteItem}>
+          <TouchableOpacity 
+            style={styles.favoriteItem}
+            onPress={() => handleBarPress(item._id)}
+          >
             <View style={styles.favoriteImagePlaceholder}>
               <Ionicons name="beer" size={32} color="#FFA500" />
             </View>
             <View style={styles.favoriteContent}>
               <Text style={styles.favoriteName}>{item.name}</Text>
               <Text style={styles.favoriteDescription} numberOfLines={2}>
-                {item.description}
+                {item.description || "Sin descripción disponible"}
               </Text>
               <View style={styles.ratingContainer}>
                 <Ionicons name="star" size={16} color="#FFA500" />
-                <Text style={styles.ratingText}>{item.rating}</Text>
+                <Text style={styles.ratingText}>{item.averageRating?.toFixed(1) || "0.0"}</Text>
               </View>
             </View>
             <TouchableOpacity style={styles.favoriteAction}>
@@ -90,7 +103,10 @@ const router = useRouter();
             <Text style={styles.emptySubtitle}>
               Explora bares y añádelos a tus favoritos para verlos aquí
             </Text>
-            <TouchableOpacity style={styles.exploreButton}>
+            <TouchableOpacity 
+              style={styles.exploreButton}
+              onPress={() => router.push("/collection" as any)}
+            >
               <Text style={styles.exploreButtonText}>Explorar bares</Text>
             </TouchableOpacity>
           </View>
@@ -101,25 +117,31 @@ const router = useRouter();
 }
 
 const styles = StyleSheet.create({
- backButton: {
-    position: "absolute",
-    top: 16,
-    left: 16,
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: "#121212",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  container: {
+    flex: 1,
+    backgroundColor: "#121212",
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingTop: 60,
+    paddingBottom: 16,
+  },
+  backButton: {
     backgroundColor: "rgba(0,0,0,0.5)",
     borderRadius: 20,
     width: 40,
     height: 40,
     justifyContent: "center",
     alignItems: "center",
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: "#121212",
+    marginRight: 16,
   },
   title: {
     fontSize: 24,
@@ -204,10 +226,9 @@ const styles = StyleSheet.create({
     color: "white",
     marginTop: 16,
     marginBottom: 8,
-    textAlign: "center",
   },
   emptySubtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: "#999",
     textAlign: "center",
     marginBottom: 24,
@@ -220,9 +241,9 @@ const styles = StyleSheet.create({
   },
   exploreButtonText: {
     color: "white",
-    fontWeight: "bold",
     fontSize: 16,
+    fontWeight: "bold",
   },
-})
+});
 
-export default FavoritesScreen
+export default FavoritesScreen;

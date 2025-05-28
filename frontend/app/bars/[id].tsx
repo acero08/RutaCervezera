@@ -101,6 +101,12 @@ const BarDetails = () => {
 
         setBar(barData);
 
+        // Check if bar is in user's favorites
+        if (user?._id) {
+          const userFavorites = await api.getUserFavorites(user._id);
+          setIsFavorite(userFavorites.some((fav: any) => fav._id === barData._id));
+        }
+
         const food = menuData.data?.food || [];
         const drink = menuData.data?.drink || [];
         const alcoholic = drink.filter((item: any) => item.isAlcoholic);
@@ -169,9 +175,45 @@ const BarDetails = () => {
     fetchData();
   }, [id, user]);
 
-  const toggleFavorite = () => {
-    setIsFavorite(!isFavorite);
-    // Lógica para guardar favoritos
+  const toggleFavorite = async () => {
+    if (!user || !user._id) {
+      Alert.alert(
+        "Iniciar sesión requerido",
+        "Debes iniciar sesión para agregar a favoritos",
+        [
+          {
+            text: "Cancelar",
+            style: "cancel"
+          },
+          {
+            text: "Iniciar sesión",
+            onPress: () => router.push("/userauth/Login")
+          }
+        ]
+      );
+      return;
+    }
+
+    if (!bar?._id) {
+      Alert.alert("Error", "No se pudo encontrar el bar");
+      return;
+    }
+
+    try {
+      // At this point TypeScript knows user._id is defined
+      await api.toggleFavorite(user._id, bar._id);
+      setIsFavorite(prev => !prev);
+      Alert.alert(
+        "Éxito",
+        isFavorite ? "Bar eliminado de favoritos" : "Bar añadido a favoritos"
+      );
+    } catch (error: any) {
+      console.error('Error al actualizar favorito:', error);
+      Alert.alert(
+        "Error",
+        error.response?.data?.message || "No se pudo actualizar favoritos"
+      );
+    }
   };
 
   const handleViewComments = async (review: any) => {

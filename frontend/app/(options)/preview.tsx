@@ -2,14 +2,24 @@ import React from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
 export default function PreviewScreen() {
   const { user } = useAuth();
+  const router = useRouter();
 
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Vista Previa</Text>
+        <View style={styles.headerTop}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <MaterialIcons name="arrow-back" size={28} color="white" />
+          </TouchableOpacity>
+          <Text style={styles.title}>Vista Previa</Text>
+        </View>
         <Text style={styles.subtitle}>Así es como los clientes ven tu negocio</Text>
       </View>
 
@@ -56,6 +66,14 @@ const styles = StyleSheet.create({
   header: {
     padding: 20,
     paddingTop: 60,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
+  backButton: {
+    marginRight: 15,
   },
   title: {
     fontSize: 32,

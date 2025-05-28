@@ -18,8 +18,19 @@ export default function EventsScreen() {
   const [selectedFilter, setSelectedFilter] = useState("week")
   const [events, setEvents] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [barNames, setBarNames] = useState<{[key: string]: string}>({})
   const eventService = EventService.getInstance()
   const router = useRouter()
+
+  const fetchBarName = async (barId: string) => {
+    try {
+      const barDetails = await eventService.getBarById(barId)
+      setBarNames(prev => ({...prev, [barId]: barDetails.name}))
+    } catch (error) {
+      console.error("Error al obtener detalles del bar:", error)
+      setBarNames(prev => ({...prev, [barId]: "Error al cargar el bar"}))
+    }
+  }
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -34,6 +45,13 @@ export default function EventsScreen() {
 
         const merged = selectedFilter === "all" ? data.flat() : data[0]
         setEvents(merged)
+
+        // Fetch bar names for events with bar IDs
+        const barPromises = merged
+          .filter(event => typeof event.bar === 'string' && event.bar.length > 0)
+          .map(event => fetchBarName(event.bar))
+        
+        await Promise.all(barPromises)
       } catch (error) {
         console.error("Error cargando eventos:", error)
       } finally {
@@ -43,6 +61,13 @@ export default function EventsScreen() {
 
     fetchEvents()
   }, [selectedFilter])
+
+  const getBarName = (event: any) => {
+    if (typeof event.bar === 'string') {
+      return barNames[event.bar] || "Cargando..."
+    }
+    return "Bar desconocido"
+  }
 
   const filteredEvents = events.filter((event) =>
     event.title?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -159,7 +184,7 @@ export default function EventsScreen() {
                   <View className="flex-row items-center justify-between">
                     <View className="flex-row items-center">
                       <View className="w-2 h-2 bg-amber-500 rounded-full mr-2"></View>
-                      <Text className="text-amber-500 font-bold text-base">{event.bar?.name || "Bar desconocido"}</Text>
+                      <Text className="text-amber-500 font-bold text-base">{getBarName(event)}</Text>
                     </View>
                   </View>
                 </View>

@@ -10,15 +10,32 @@ export default function EventDetailScreen() {
   const { eventId } = useLocalSearchParams()
   const [event, setEvent] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [barName, setBarName] = useState("Bar desconocido")
   const router = useRouter()
   const api = EventService.getInstance()
 
   useEffect(() => {
     const fetchEvent = async () => {
       try {
+        setLoading(true)
         const events = await api.getEvents("month") 
         const found = events.find((e) => e._id === eventId)
-        setEvent(found)
+        
+        console.log("Evento encontrado:", found) // Para depuración
+        
+        if (found) {
+          setEvent(found)
+          
+          if (typeof found.bar === 'string' && found.bar.length > 0) {
+            try {
+              const barDetails = await api.getBarById(found.bar)
+              setBarName(barDetails.name)
+            } catch (error) {
+              console.error("Error al obtener detalles del bar:", error)
+              setBarName("Error al cargar el bar")
+            }
+          } 
+        }
       } catch (error) {
         console.error("Error al cargar el evento:", error)
       } finally {
@@ -93,7 +110,7 @@ export default function EventDetailScreen() {
           <View className="flex-row items-center">
             <MaterialIcons name="local-bar" size={20} color="#d97706" />
             <Text className="text-amber-500 ml-2 font-semibold text-base">
-              {event.bar?.name || "Bar desconocido"}
+              {barName}
             </Text>
           </View>
         </View>

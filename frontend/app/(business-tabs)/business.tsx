@@ -291,7 +291,7 @@ export default function BusinessScreen() {
         <MenuSection
           title="Configuración del Bar"
           icon="settings"
-          onPress={() => router.push('/(business-tabs)/preview')}
+          onPress={() => router.push('/(options)/preview')}
         />
         <MenuSection
           title="Comidas"
@@ -308,22 +308,6 @@ export default function BusinessScreen() {
           icon="local-bar"
           onPress={() => router.push('/(menu)/alcoholic-drinks')}
         />
-      </View>
-
-      {/* Additional Management Options */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Gestión General</Text>
-        <TouchableOpacity style={styles.actionButton}>
-          <MaterialIcons name="event" size={24} color="#FFA500" />
-          <Text style={styles.actionText}>Gestionar Eventos</Text>
-          <MaterialIcons name="chevron-right" size={24} color="#666" />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.actionButton}>
-          <MaterialIcons name="settings" size={24} color="#FFA500" />
-          <Text style={styles.actionText}>Configuración del Bar</Text>
-          <MaterialIcons name="chevron-right" size={24} color="#666" />
-        </TouchableOpacity>
       </View>
     </ScrollView>
   );

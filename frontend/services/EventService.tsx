@@ -34,4 +34,14 @@ export default class EventService {
       throw error;
     }
   }
+
+  async getBarById(barId: string): Promise<any> {
+    try {
+      const { data }: AxiosResponse = await axios.get(`${this.api}/bars/${barId}`);
+      return data;
+    } catch (error) {
+      HandleLoginError(error);
+      throw error;
+    }
+  }
 }

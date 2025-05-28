@@ -40,6 +40,15 @@ export default function UserLayout() {
       }}
     >
       <Tabs.Screen
+        name="events"
+        options={{
+          title: "Events",
+          tabBarIcon: ({ color, size }) => (
+            <FontAwesome name="calendar" size={size} color={color} />
+          ),
+        }}
+      />
+<Tabs.Screen
         name="collection"
         options={{
           title: "Search",
@@ -48,21 +57,12 @@ export default function UserLayout() {
           ),
         }}
       />
-<Tabs.Screen
+      <Tabs.Screen
         name="profile"
         options={{
           title: "Me",
           tabBarIcon: ({ color, size }) => (
             <Octicons name="person" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="events"
-        options={{
-          title: "Events",
-          tabBarIcon: ({ color, size }) => (
-            <FontAwesome name="calendar" size={size} color={color} />
           ),
         }}
       />
