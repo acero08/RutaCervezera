@@ -44,7 +44,7 @@ export default function DrinksScreen() {
     try {
       const response = await api.getBarMenu();
       if (response.success) {
-        setDrinks(response.data.filter((item: DrinkItem) => !item.isAlcoholic));
+        setDrinks(response.data.drinks || []);
       }
     } catch (error) {
       console.error('Error loading drinks:', error);
@@ -54,7 +54,9 @@ export default function DrinksScreen() {
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [4, 3],
       quality: 0.7,
     });
 
@@ -73,6 +75,7 @@ export default function DrinksScreen() {
       formData.append('volume', newItem.volume.toString());
       formData.append('category', newItem.category);
       formData.append('servingTemperature', newItem.servingTemperature || 'frio');
+      formData.append('itemType', 'drink');
 
       if (selectedImage) {
         formData.append('image', {

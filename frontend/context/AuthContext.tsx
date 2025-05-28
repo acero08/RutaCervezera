@@ -60,7 +60,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     const checkLogin = async () => {
       try {
         console.log('CheckLogin - Starting...');
-        const storedToken = await AsyncStorage.getItem("token");
+        // FIX: Usar 'userToken' consistentemente
+        const storedToken = await AsyncStorage.getItem("userToken");
         const storedUser = await AsyncStorage.getItem("user");
 
         if (storedToken && storedUser) {
@@ -113,7 +114,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const fetchUser = async () => {
     try {
-      const storedToken = await AsyncStorage.getItem("token");
+      // FIX: Usar 'userToken' consistentemente
+      const storedToken = await AsyncStorage.getItem("userToken");
       if (storedToken) {
         const userData = await api.getUserData(storedToken);
         if (userData.image) {
@@ -134,7 +136,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const handleAuth = async (auth: any) => {
     try {
       console.log('HandleAuth - Received user type:', auth.user.accountType);
-      await AsyncStorage.setItem("token", auth.token);
+      // FIX: Usar 'userToken' consistentemente
+      await AsyncStorage.setItem("userToken", auth.token);
       await AsyncStorage.setItem("user", JSON.stringify(auth.user));
       setToken(auth.token);
       setUser(auth.user);

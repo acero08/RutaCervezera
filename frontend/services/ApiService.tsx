@@ -26,12 +26,19 @@ export default class ApiService {
         email,
         password,
       });
+      
+      if (data.success) {
+        await AsyncStorage.setItem('userToken', data.token); // Asegúrate de que el token esté en data.token
+        console.log('Token stored:', data.token);
+      }
+      
       return data;
     } catch (error) {
       HandleLoginError(error);
       throw error;
     }
   }
+  
 
   async register(
     name: string,
@@ -137,7 +144,7 @@ export default class ApiService {
     try {
       const token = await AsyncStorage.getItem('userToken');
       console.log('Token from storage:', token ? 'exists' : 'not found');
-      
+  
       if (!token) {
         throw new Error('No authentication token found');
       }
@@ -154,6 +161,7 @@ export default class ApiService {
       throw this.handleError(error);
     }
   }
+  
   
  
   async updateBarImage(type: 'cover' | 'profile', formData: FormData): Promise<any> {
@@ -174,32 +182,84 @@ export default class ApiService {
       throw this.handleError(error);
     }
   }
-
-  async updateBarDetails(details: { name?: string }): Promise<any> {
+  async updateBarDetails(details: { 
+    name?: string; 
+    description?: string; 
+    phone?: string; 
+    email?: string; 
+    website?: string 
+  }): Promise<any> {
     try {
       const token = await AsyncStorage.getItem('userToken');
+      
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      console.log('Updating bar details with token:', token ? 'exists' : 'missing');
+      
       const response = await axios.put(
-        `${this.api}/bars/current`,
+        `${this.api}/bars/current`, 
         details,
         {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
         }
       );
+
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Error updating bar details');
+      }
+
       return response.data;
-    } catch (error) {
-      throw this.handleError(error);
+    } catch (error: any) {
+      console.error('Error updating bar details:', error);
+      if (error.response?.status === 401) {
+        throw new Error('Authentication required - please login again');
+      } else if (error.response?.status === 400) {
+        throw new Error(error.response.data.message || 'Invalid data provided');
+      } else if (error.response) {
+        throw new Error(error.response.data.message || 'Server error');
+      } else if (error.request) {
+        throw new Error('Network error - please check your connection');
+      }
+      throw error;
     }
   }
 
-  async getBarMenu(barId?: string): Promise<any> {
+  async getBarMenu(): Promise<any> {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      const response = await axios.get(`${this.api}/bars/${barId || 'current'}/menu`, {
-        headers: { Authorization: `Bearer ${token}` }
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await axios.get(`${this.api}/bars/current/menu`, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
+
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Error al obtener el menú');
+      }
+
       return response.data;
-    } catch (error) {
-      throw this.handleError(error);
+    } catch (error: any) {
+      console.error('Error getting menu:', error);
+      if (error.response?.status === 401) {
+        throw new Error('Authentication required - please login again');
+      } else if (error.response?.status === 404) {
+        throw new Error('No bar found or no menu items available');
+      } else if (error.response) {
+        throw new Error(error.response.data.message || 'Server error');
+      } else if (error.request) {
+        throw new Error('Network error - please check your connection');
+      }
+      throw error;
     }
   }
 
@@ -218,8 +278,18 @@ export default class ApiService {
   async createFoodItem(formData: FormData): Promise<any> {
     try {
       const token = await AsyncStorage.getItem('userToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      // Get current bar details to get the barId
+      const barDetails = await this.getBarDetails();
+      if (!barDetails.success || !barDetails.data._id) {
+        throw new Error('No bar found or not authorized to manage a bar');
+      }
+
       const response = await axios.post(
-        `${this.api}/menu/food`,
+        `${this.api}/bars/${barDetails.data._id}/menu`,
         formData,
         {
           headers: {
@@ -237,8 +307,18 @@ export default class ApiService {
   async createDrinkItem(formData: FormData): Promise<any> {
     try {
       const token = await AsyncStorage.getItem('userToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      // Get current bar details to get the barId
+      const barDetails = await this.getBarDetails();
+      if (!barDetails.success || !barDetails.data._id) {
+        throw new Error('No bar found or not authorized to manage a bar');
+      }
+
       const response = await axios.post(
-        `${this.api}/menu/drink`,
+        `${this.api}/bars/${barDetails.data._id}/menu`,
         formData,
         {
           headers: {
@@ -253,6 +333,83 @@ export default class ApiService {
     }
   }
 
+  async createAlcoholicDrinkItem(formData: FormData): Promise<any> {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+  
+      console.log('Creating alcoholic drink with token:', token ? 'exists' : 'missing');
+  
+      const response = await axios.post(
+        `${this.api}/bars/current/menu`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data',
+          }
+        }
+      );
+  
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Error creating alcoholic drink');
+      }
+  
+      return response.data;
+    } catch (error) {
+      console.error('Error in createAlcoholicDrinkItem:', error);
+      throw this.handleError(error);
+    }
+  }
+  
+  // FIX: Método getAlcoholicDrinks corregido
+  async getAlcoholicDrinks(): Promise<any> {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+  
+      console.log('Getting alcoholic drinks with token:', token ? 'exists' : 'not found');
+  
+      const response = await axios.get(`${this.api}/bars/current/menu`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+  
+      console.log('Menu response:', response.data);
+  
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Error fetching alcoholic drinks');
+      }
+  
+      return {
+        success: true,
+        data: response.data.data.alcoholicDrinks || []
+      };
+    } catch (error: any) {
+      console.error('Error in getAlcoholicDrinks:', error);
+      
+      if (error.response) {
+        console.error('Error response:', error.response.data);
+        console.error('Error status:', error.response.status);
+        
+        if (error.response.status === 401) {
+          throw new Error('Authentication required - please login again');
+        } else if (error.response.status === 403) {
+          throw new Error('No tienes permiso para acceder a este menú');
+        } else if (error.response.status === 404) {
+          throw new Error('No bar found or no menu items available');
+        }
+      }
+      
+      throw this.handleError(error);
+    }
+  }
   // ============================================================================
   // REVIEWS METHODS
   // ============================================================================

@@ -17,30 +17,32 @@ import { useAuth } from '../../context/AuthContext';
 import ApiService from '../../services/ApiService';
 import { useNavigation } from '@react-navigation/native';
 
-interface DrinkItem {
+interface AlcoholicItem {
   _id?: string;
   name: string;
   description: string;
   price: number;
   image?: string;
-  isAlcoholic: boolean;
   alcoholPercentage: number;
   volume: number;
   category: string;
+  origin?: string;
+  brand: string;
 }
 
 export default function AlcoholicDrinksScreen() {
-  const [drinks, setDrinks] = useState<DrinkItem[]>([]);
+  const [drinks, setDrinks] = useState<AlcoholicItem[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedImage, setSelectedImage] = useState<{ uri: string } | null>(null);
-  const [newItem, setNewItem] = useState<DrinkItem>({
+  const [newItem, setNewItem] = useState<AlcoholicItem>({
     name: '',
     description: '',
     price: 0,
-    isAlcoholic: true,
     alcoholPercentage: 0,
     volume: 0,
     category: 'cerveza',
+    brand: '',
+    origin: ''
   });
 
   const { token } = useAuth();
@@ -53,13 +55,13 @@ export default function AlcoholicDrinksScreen() {
 
   const loadDrinks = async () => {
     try {
-      const response = await api.getBarMenu();
+      const response = await api.getAlcoholicDrinks();
       if (response.success) {
-        setDrinks(response.data.filter((item: DrinkItem) => item.isAlcoholic));
+        setDrinks(response.data || []);
       }
     } catch (error) {
-      console.error('Error loading drinks:', error);
-      Alert.alert('Error', 'No se pudieron cargar las bebidas');
+      console.error('Error loading alcoholic drinks:', error);
+      Alert.alert('Error', 'No se pudieron cargar las bebidas alcohólicas');
     }
   };
 
@@ -67,10 +69,11 @@ export default function AlcoholicDrinksScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      quality: 1,
+      aspect: [4, 3],
+      quality: 0.7,
     });
 
-    if (!result.canceled) {
+    if (!result.canceled && result.assets.length > 0) {
       setSelectedImage({ uri: result.assets[0].uri });
     }
   };
@@ -81,39 +84,42 @@ export default function AlcoholicDrinksScreen() {
       formData.append('name', newItem.name);
       formData.append('description', newItem.description);
       formData.append('price', newItem.price.toString());
-      formData.append('isAlcoholic', 'true');
       formData.append('alcoholPercentage', newItem.alcoholPercentage.toString());
       formData.append('volume', newItem.volume.toString());
       formData.append('category', newItem.category);
+      formData.append('brand', newItem.brand);
+      formData.append('origin', newItem.origin || '');
+      formData.append('itemType', 'alcoholic');
 
       if (selectedImage) {
         formData.append('image', {
           uri: selectedImage.uri,
           type: 'image/jpeg',
-          name: 'drink.jpg',
+          name: 'drink_image.jpg',
         } as any);
       }
 
-      const response = await api.createDrinkItem(formData);
+      const response = await api.createAlcoholicDrinkItem(formData);
 
       if (response.success) {
-        Alert.alert('Éxito', 'Bebida creada correctamente');
+        Alert.alert('Éxito', 'Bebida alcohólica creada correctamente');
         setModalVisible(false);
-        setSelectedImage(null);
+        loadDrinks();
         setNewItem({
           name: '',
           description: '',
           price: 0,
-          isAlcoholic: true,
           alcoholPercentage: 0,
           volume: 0,
           category: 'cerveza',
+          brand: '',
+          origin: ''
         });
-        loadDrinks();
+        setSelectedImage(null);
       }
     } catch (error) {
-      console.error('Error al crear bebida:', error);
-      Alert.alert('Error', 'No se pudo crear la bebida');
+      console.error('Error al crear bebida alcohólica:', error);
+      Alert.alert('Error', 'No se pudo crear la bebida alcohólica');
     }
   };
 
@@ -121,12 +127,12 @@ export default function AlcoholicDrinksScreen() {
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <MaterialIcons name="arrow-back" size={28} color="#FFA500" />
+          <MaterialIcons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
         <Text style={styles.title}>Bebidas Alcohólicas</Text>
         <TouchableOpacity style={styles.addButton} onPress={() => setModalVisible(true)}>
           <MaterialIcons name="add" size={24} color="white" />
-          <Text style={styles.addButtonText}>Agregar</Text>
+          <Text style={styles.addButtonText}>Agregar Bebida</Text>
         </TouchableOpacity>
       </View>
 
@@ -146,12 +152,12 @@ export default function AlcoholicDrinksScreen() {
               <Text style={styles.drinkDetails}>
                 {drink.alcoholPercentage}% - {drink.volume}ml
               </Text>
+              <Text style={styles.drinkBrand}>{drink.brand}</Text>
             </View>
           </View>
         ))}
       </View>
 
-      {/* Modal con nuevo estilo */}
       <Modal visible={modalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalBackground}>
           <View style={styles.modalContainer}>
@@ -183,7 +189,7 @@ export default function AlcoholicDrinksScreen() {
             />
 
             <TextInput
-              placeholder="Porcentaje de alcohol (ej. 4.5)"
+              placeholder="% Alcohol (ej. 5.5)"
               placeholderTextColor="#888"
               style={styles.input}
               keyboardType="decimal-pad"
@@ -197,15 +203,23 @@ export default function AlcoholicDrinksScreen() {
               style={styles.input}
               keyboardType="decimal-pad"
               value={newItem.volume ? newItem.volume.toString() : ''}
-              onChangeText={(text) => setNewItem({ ...newItem, volume: parseFloat(text) || 0 })}
+              onChangeText={(text) => setNewItem({ ...newItem, volume: parseInt(text) || 0 })}
             />
 
             <TextInput
-              placeholder="Categoría (ej. cerveza)"
+              placeholder="Marca"
               placeholderTextColor="#888"
               style={styles.input}
-              value={newItem.category}
-              onChangeText={(text) => setNewItem({ ...newItem, category: text })}
+              value={newItem.brand}
+              onChangeText={(text) => setNewItem({ ...newItem, brand: text })}
+            />
+
+            <TextInput
+              placeholder="Origen (opcional)"
+              placeholderTextColor="#888"
+              style={styles.input}
+              value={newItem.origin}
+              onChangeText={(text) => setNewItem({ ...newItem, origin: text })}
             />
 
             <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
@@ -242,15 +256,15 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    color: 'white',
     fontWeight: 'bold',
+    color: 'white',
   },
   addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#FFA500',
     padding: 10,
     borderRadius: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   addButtonText: {
     color: 'white',
@@ -263,7 +277,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: '#1E1E1E',
     padding: 15,
-    borderRadius: 10,
+    borderRadius: 12,
     marginBottom: 10,
     alignItems: 'center',
   },
@@ -281,8 +295,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   drinkInfo: {
-    marginLeft: 15,
     flex: 1,
+    marginLeft: 15,
   },
   drinkName: {
     color: 'white',
@@ -295,10 +309,15 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   drinkDetails: {
-    color: '#aaa',
+    color: '#999',
     fontSize: 12,
+    marginTop: 2,
   },
-  // Nuevos estilos del modal
+  drinkBrand: {
+    color: '#999',
+    fontSize: 12,
+    fontStyle: 'italic',
+  },
   modalBackground: {
     flex: 1,
     justifyContent: 'center',
@@ -314,8 +333,7 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
+    marginBottom: 10,
   },
   input: {
     backgroundColor: '#2A2A2A',
@@ -330,7 +348,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFA500',
     padding: 10,
     borderRadius: 8,
-    marginTop: 10,
   },
   modalActions: {
     flexDirection: 'row',

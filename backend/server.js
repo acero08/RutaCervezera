@@ -15,10 +15,11 @@ const User = require("./models/UserDetails.models.js");
 const Bar = require("./models/Bar.models.js");
 const Comment = require("./models/CommentReview.models.js");
 const UpvoteReview = require("./models/UpvoteReview.models.js");
-const MenuItem = require("./models/MenuItem.models.js");
+
 const BaseItem = require('./models/BaseItem.models.js');
 const FoodItem = require('./models/FoodItem.models.js');
 const DrinkItem = require('./models/DrinkItem.models.js');
+const AlcoholicItem = require('./models/AlcoholicItem.models.js');
 
 require('dotenv').config();
 const YELP_API_KEY = process.env.YELP_API_KEY;
@@ -29,6 +30,8 @@ const port = 3000;
 app.use(cors());
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
+// Antes de todas las rutas
+
 
 // Hace load al Swagger YAML file
 const swaggerDocument = YAML.load("./swagger.yaml");
@@ -154,6 +157,7 @@ app.get("/api/bars/current", async (req, res) => {
       });
     }
 
+    // Manejo genérico de errores
     res.status(500).json({
       success: false,
       message: "Error en el servidor",
@@ -161,6 +165,8 @@ app.get("/api/bars/current", async (req, res) => {
     });
   }
 });
+
+
 
 // Actualizar el bar actual del usuario
 app.put("/api/bars/current", async (req, res) => {
@@ -208,40 +214,28 @@ app.put("/api/bars/current", async (req, res) => {
       });
     }
 
-    // Validar los datos de entrada
-    const { name, description, phone, email, website } = req.body;
-
-    // Validaciones básicas
-    if (name && name.trim().length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "El nombre no puede estar vacío"
-      });
-    }
-
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({
-        success: false,
-        message: "Email inválido"
-      });
-    }
-
-    // Actualizar los campos permitidos
+    // Solo actualizar los campos proporcionados
+    const updateFields = {};
     const allowedFields = ['name', 'description', 'phone', 'email', 'website'];
+
     allowedFields.forEach(field => {
       if (req.body[field] !== undefined) {
-        bar[field] = req.body[field];
+        updateFields[field] = req.body[field];
       }
     });
 
-    await bar.save();
-    console.log("Bar updated successfully");
+    // Usar findByIdAndUpdate con { new: true, runValidators: true }
+    const updatedBar = await Bar.findByIdAndUpdate(
+      bar._id,
+      { $set: updateFields },
+      { new: true, runValidators: true }
+    );
 
-    // Procesar las URLs de las imágenes para la respuesta
+    // Procesar las URLs de las imágenes
     const processedBar = {
-      ...bar.toObject(),
-      profileImage: bar.profileImage ? `http://localhost:3000${bar.profileImage}` : null,
-      coverImage: bar.coverImage ? `http://localhost:3000${bar.coverImage}` : null
+      ...updatedBar.toObject(),
+      profileImage: updatedBar.profileImage ? `http://localhost:3000${updatedBar.profileImage}` : null,
+      coverImage: updatedBar.coverImage ? `http://localhost:3000${updatedBar.coverImage}` : null
     };
 
     res.status(200).json({
@@ -252,6 +246,7 @@ app.put("/api/bars/current", async (req, res) => {
   } catch (error) {
     console.error("Error actualizando bar actual:", error);
 
+    // Mejorar el manejo de errores
     if (error.name === 'JsonWebTokenError') {
       return res.status(401).json({
         success: false,
@@ -263,10 +258,11 @@ app.put("/api/bars/current", async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Datos inválidos",
-        details: Object.values(error.errors).map(err => err.message)
+        errors: Object.values(error.errors).map(err => err.message)
       });
     }
 
+    // Manejo genérico de errores
     res.status(500).json({
       success: false,
       message: "Error en el servidor",
@@ -1546,67 +1542,101 @@ app.get("/api/bars/:barId/drinks", async (req, res) => {
 // CREATE item
 app.post("/api/bars/:barId/menu", upload.single("image"), async (req, res) => {
   try {
-    const { name, description, price, itemType } = req.body;
-    const image = req.file ? `/uploads/${req.file.filename}` : null;
-    const barId = req.params.barId;
+    const { barId } = req.params;
+    const authHeader = req.headers.authorization;
 
-    // Verificar existencia del bar
-    const bar = await Bar.findById(barId);
-    if (!bar) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        success: false,
+        message: "Token requerido"
+      });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await User.findById(decoded.userId);
+
+    if (!user) {
       return res.status(404).json({
         success: false,
-        message: "Bar no encontrado"
+        message: "Usuario no encontrado"
       });
     }
 
-    let newItem;
+    // Verificar si el usuario tiene permiso para gestionar este bar
+    if (!user.managedBars || !user.managedBars.includes(barId)) {
+      return res.status(403).json({
+        success: false,
+        message: "No tienes permiso para gestionar este bar"
+      });
+    }
 
-    if (itemType === "food") {
-      newItem = new FoodItem({
-        bar: barId,
+    const { name, description, price, category, itemType } = req.body;
+    const image = req.file ? `/uploads/${req.file.filename}` : null;
+
+    let item;
+    if (itemType === 'food') {
+      const { isVegetarian, hasGluten, calories } = req.body;
+      item = new FoodItem({
         name,
         description,
-        price,
+        price: parseFloat(price),
+        category,
         image,
-        isVegetarian: req.body.isVegetarian === "true",
-        calories: req.body.calories ? parseInt(req.body.calories) : null,
-        category: req.body.category
-      });
-    }
-    else if (itemType === "drink") {
-      newItem = new DrinkItem({
         bar: barId,
+        isVegetarian: isVegetarian === 'true',
+        hasGluten: hasGluten === 'true',
+        calories: calories ? parseInt(calories) : undefined,
+        createdBy: user._id
+      });
+    } else if (itemType === 'alcoholic') {
+      const { alcoholPercentage, volume, brand, origin } = req.body;
+      item = new AlcoholicItem({
         name,
         description,
-        price,
+        price: parseFloat(price),
+        category,
         image,
-        isAlcoholic: req.body.isAlcoholic === "true",
-        alcoholPercentage: req.body.isAlcoholic === "true" ? parseFloat(req.body.alcoholPercentage) : null,
-        volume: parseInt(req.body.volume),
-        category: req.body.category,
-        servingTemperature: req.body.servingTemperature
+        bar: barId,
+        alcoholPercentage: parseFloat(alcoholPercentage),
+        volume: parseInt(volume),
+        brand,
+        origin,
+        createdBy: user._id
       });
-    }
-    else {
+    } else if (itemType === 'drink') {
+      const { volume, servingTemperature } = req.body;
+      item = new DrinkItem({
+        name,
+        description,
+        price: parseFloat(price),
+        category,
+        image,
+        bar: barId,
+        volume: parseInt(volume),
+        servingTemperature,
+        createdBy: user._id
+      });
+    } else {
       return res.status(400).json({
         success: false,
-        message: "Tipo de ítem inválido"
+        message: "Tipo de item inválido"
       });
     }
 
-    await newItem.save();
+    await item.save();
 
     res.status(201).json({
       success: true,
-      message: "Ítem creado exitosamente",
-      data: newItem
+      message: "Item creado exitosamente",
+      data: item
     });
 
   } catch (error) {
-    console.error("Error al crear ítem:", error);
+    console.error("Error creating menu item:", error);
     res.status(500).json({
       success: false,
-      message: "Error interno del servidor",
+      message: "Error al crear el item",
       error: error.message
     });
   }
@@ -2902,6 +2932,189 @@ app.delete("/api/business/bar/:barId/photos/:photoId", verifyAdminPermissions, a
 });
 
 ////********************************************////
+
+
+// Obtener el menú del bar actual - FIXED
+app.get("/api/bars/current/menu", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        success: false,
+        message: "Token requerido"
+      });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await User.findById(decoded.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Usuario no encontrado"
+      });
+    }
+
+    // Verificar si el usuario tiene un bar asignado
+    if (!user.managedBars || user.managedBars.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No tienes un bar asignado"
+      });
+    }
+
+    const barId = user.managedBars[0];
+    console.log("Looking for menu items with barId:", barId);
+
+    // Obtener todos los items del menú - FIX: usar el ObjectId correcto
+    const menuItems = await BaseItem.find({
+      bar: barId  // Ahora usa el ObjectId real en lugar de "current"
+    });
+
+    console.log("Found menu items:", menuItems.length);
+
+    // Separar items por tipo
+    const food = menuItems.filter(item => item.itemType === 'FoodItem');
+    const drinks = menuItems.filter(item => item.itemType === 'DrinkItem');
+    const alcoholicDrinks = menuItems.filter(item => item.itemType === 'AlcoholicItem');
+
+    // Procesar las URLs de las imágenes
+    const processItems = (items) => {
+      return items.map(item => ({
+        ...item.toObject(),
+        image: item.image ? `http://localhost:3000${item.image}` : null
+      }));
+    };
+
+    res.status(200).json({
+      success: true,
+      data: {
+        food: processItems(food),
+        drinks: processItems(drinks),
+        alcoholicDrinks: processItems(alcoholicDrinks)
+      }
+    });
+
+  } catch (error) {
+    console.error("Error obteniendo menú:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener el menú",
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Error interno del servidor'
+    });
+  }
+});
+
+// Crear item en el menú del bar actual - FIXED
+app.post("/api/bars/current/menu", upload.single("image"), async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        success: false,
+        message: "Token requerido"
+      });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await User.findById(decoded.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Usuario no encontrado"
+      });
+    }
+
+    // Verificar si el usuario tiene un bar asignado
+    if (!user.managedBars || user.managedBars.length === 0) {
+      return res.status(403).json({
+        success: false,
+        message: "No tienes un bar asignado"
+      });
+    }
+
+    const barId = user.managedBars[0];
+    const { name, description, price, category, itemType } = req.body;
+    const image = req.file ? `/uploads/${req.file.filename}` : null;
+
+    console.log("Creating item for bar:", barId);
+    console.log("Item type:", itemType);
+
+    let item;
+    if (itemType === 'alcoholic') {
+      const { alcoholPercentage, volume, brand, origin } = req.body;
+      item = new AlcoholicItem({
+        name,
+        description,
+        price: parseFloat(price),
+        category,
+        image,
+        bar: barId,
+        alcoholPercentage: parseFloat(alcoholPercentage),
+        volume: parseInt(volume),
+        brand,
+        origin,
+        createdBy: user._id,
+        itemType: 'AlcoholicItem' // FIX: Asegurar que el itemType sea correcto
+      });
+    } else if (itemType === 'drink') {
+      const { volume, servingTemperature } = req.body;
+      item = new DrinkItem({
+        name,
+        description,
+        price: parseFloat(price),
+        category,
+        image,
+        bar: barId,
+        volume: parseInt(volume),
+        servingTemperature,
+        createdBy: user._id,
+        itemType: 'DrinkItem' // FIX: Asegurar que el itemType sea correcto
+      });
+    } else if (itemType === 'food') {
+      const { isVegetarian, hasGluten, calories } = req.body;
+      item = new FoodItem({
+        name,
+        description,
+        price: parseFloat(price),
+        category,
+        image,
+        bar: barId,
+        isVegetarian: isVegetarian === 'true',
+        hasGluten: hasGluten === 'true',
+        calories: calories ? parseInt(calories) : undefined,
+        createdBy: user._id,
+        itemType: 'FoodItem' // FIX: Asegurar que el itemType sea correcto
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: "Tipo de item inválido"
+      });
+    }
+
+    await item.save();
+    console.log("Item created successfully:", item._id);
+
+    res.status(201).json({
+      success: true,
+      message: "Item creado exitosamente",
+      data: item
+    });
+
+  } catch (error) {
+    console.error("Error creating menu item:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al crear el item",
+      error: error.message
+    });
+  }
+});
+
 
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);

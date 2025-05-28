@@ -42,11 +42,16 @@ export default function FoodScreen() {
 
   const loadFood = async () => {
     try {
+      setLoading(true);
       const response = await api.getBarMenu();
-      setFoodItems(response.data.food || []);
-    } catch (error) {
+      if (response.success && response.data) {
+        setFoodItems(response.data.food || []);
+      } else {
+        throw new Error('No se pudo cargar el menú');
+      }
+    } catch (error: any) {
       console.error('Error loading food:', error);
-      Alert.alert('Error', 'No se pudieron cargar los alimentos');
+      Alert.alert('Error', error.message || 'No se pudieron cargar los alimentos');
     } finally {
       setLoading(false);
     }
@@ -54,8 +59,10 @@ export default function FoodScreen() {
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.7,
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
     });
 
     if (!result.canceled && result.assets.length > 0) {
@@ -75,6 +82,7 @@ export default function FoodScreen() {
         formData.append('calories', newItem.calories.toString());
       }
       formData.append('category', newItem.category);
+      formData.append('itemType', 'food');
 
       if (selectedImage) {
         formData.append('image', {

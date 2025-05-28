@@ -142,6 +142,7 @@ export default function BusinessScreen() {
     if (!trimmedName) {
       Alert.alert('Error', 'El nombre del bar no puede estar vacío');
       setNewName(barDetails.name); // Restaurar nombre original
+      setIsEditingName(false);
       return;
     }
 
@@ -163,10 +164,14 @@ export default function BusinessScreen() {
       } else {
         throw new Error(response.message || 'Error al actualizar el nombre');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating bar name:', error);
-      Alert.alert('Error', 'No se pudo actualizar el nombre del bar');
+      Alert.alert(
+        'Error', 
+        error.message || 'No se pudo actualizar el nombre del bar. Por favor, intenta nuevamente.'
+      );
       setNewName(barDetails.name); // Restaurar nombre original
+      setIsEditingName(false);
     } finally {
       setNameLoading(false);
     }
@@ -289,14 +294,19 @@ export default function BusinessScreen() {
           onPress={() => router.push('/(business-tabs)/preview')}
         />
         <MenuSection
-          title="Menú"
-          icon="restaurant-menu"
+          title="Comidas"
+          icon="restaurant"
           onPress={() => router.push('/(menu)/food')}
         />
         <MenuSection
-          title="Bebidas"
-          icon="local-bar"
+          title="Bebidas No Alcohólicas"
+          icon="local-cafe"
           onPress={() => router.push('/(menu)/drinks')}
+        />
+        <MenuSection
+          title="Bebidas Alcohólicas"
+          icon="local-bar"
+          onPress={() => router.push('/(menu)/alcoholic-drinks')}
         />
       </View>
 
